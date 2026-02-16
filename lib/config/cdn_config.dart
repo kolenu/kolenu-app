@@ -11,7 +11,7 @@ class CdnConfig {
 
   /// CDN base URL. Set to your R2/Cloudflare CDN URL.
   /// Example: 'https://your-bucket.r2.cloudflarestorage.com/kolenu/'
-  static const String? cdnBaseUrl =
+  static String? get cdnBaseUrl =>
       'https://kolenu-audio.digimint.ca/${EnvConfig.keyName}/';
 
   /// Whether cloud mode is enabled (CDN URL configured).

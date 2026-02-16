@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'config/env_config.dart';
 
 import 'screens/main_shell_screen.dart';
+import 'services/cache_keys_service.dart';
 import 'services/song_download_service.dart';
 import 'services/theme_preference_service.dart';
 import 'theme/kolenu_theme.dart';
@@ -13,6 +14,7 @@ void main() async {
   debugPrint('EnvConfig: keyName=${EnvConfig.keyName}');
   debugPrint('EnvConfig: downloadKeySet=${EnvConfig.downloadKey.isNotEmpty}');
   debugPrint('EnvConfig: audioKeySet=${EnvConfig.audioKey.isNotEmpty}');
+  await CacheKeysService.checkKeysAndClearIfChanged();
   await SongDownloadService.cleanupDownloadsOnStart();
   final initialVariant = await ThemePreferenceService.getVariant();
   runApp(KolenuApp(initialThemeVariant: initialVariant));

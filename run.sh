@@ -7,22 +7,19 @@
 
 set -e
 
-# Check if keys are loaded
-if [[ -z "$KOLENU_KEY_NAME" || -z "$KOLENU_AUDIO_KEY" || -z "$KOLENU_DOWNLOAD_KEY" ]]; then
-    echo "Error: Keys not loaded. Please source set_keys.sh first:"
-    echo "  source ../tool/set_keys.sh <version>"
-    echo "Example: source ../tool/set_keys.sh dummy"
-    exit 1
-fi
-
 # Default to 'run' if no command provided
 FLUTTER_CMD="${1:-run}"
 shift || true
 
-echo "Running flutter $FLUTTER_CMD with key: $KOLENU_KEY_NAME"
-
-flutter "$FLUTTER_CMD" \
-    --dart-define=KOLENU_KEY_NAME="$KOLENU_KEY_NAME" \
-    --dart-define=KOLENU_AUDIO_KEY="$KOLENU_AUDIO_KEY" \
-    --dart-define=KOLENU_DOWNLOAD_KEY="$KOLENU_DOWNLOAD_KEY" \
-    "$@"
+# Pass keys via dart-define if loaded; otherwise app uses embedded dummy keys
+if [[ -n "$KOLENU_KEY_NAME" && -n "$KOLENU_AUDIO_KEY" && -n "$KOLENU_DOWNLOAD_KEY" ]]; then
+    echo "Running flutter $FLUTTER_CMD with key: $KOLENU_KEY_NAME"
+    exec flutter "$FLUTTER_CMD" \
+        --dart-define=KOLENU_KEY_NAME="$KOLENU_KEY_NAME" \
+        --dart-define=KOLENU_AUDIO_KEY="$KOLENU_AUDIO_KEY" \
+        --dart-define=KOLENU_DOWNLOAD_KEY="$KOLENU_DOWNLOAD_KEY" \
+        "$@"
+else
+    echo "Running flutter $FLUTTER_CMD (using embedded dummy keys)"
+    exec flutter "$FLUTTER_CMD" "$@"
+fi

@@ -33,11 +33,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
       index = await CloudIndexService.fetchOrLoadCached();
     }
     if (index == null) {
-      try {
-        index = await PrayerService.loadIndex();
-      } catch (_) {
-        index = PrayerIndex(prayers: [], versions: null);
-      }
+      index = PrayerIndex(prayers: [], versions: null);
     }
     final playlist = await DefaultPlaylistService.getPlaylist();
     final shuffle = await DefaultPlaylistService.getShuffle();

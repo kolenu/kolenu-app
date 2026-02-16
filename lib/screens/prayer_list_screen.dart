@@ -71,12 +71,16 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           usedCloud = true;
         } else {
           index = await CloudIndexService.loadFromCache();
+          if (index != null) usedCloud = true;
         }
       }
 
-      index ??= await PrayerService.loadIndex();
       if (index == null) {
-        throw Exception('Unable to load prayer index');
+        final status = CloudIndexService.lastFetchStatus;
+        if (status == 401) {
+          throw Exception('Authentication failed. Please try again.');
+        }
+        throw Exception('Check internet connection and try again.');
       }
       if (!mounted) return;
       final streak = await ProgressService.getStreak();
@@ -347,7 +351,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
 
   Future<void> _openReader(PrayerListItem item) async {
     String? songFolderId;
-    String prayerFile;
+    String prayerFile = '${item.id}/${item.file}';
 
     final recordingsForPrayer = item.recordings;
     if (recordingsForPrayer != null &&
@@ -390,40 +394,6 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     } else if (_useCloudIndex) {
       songFolderId = item.id;
       prayerFile = '${item.id}/${item.file}';
-    } else {
-      PrayerContent? content;
-      try {
-        content = await PrayerService.loadPrayerContent(
-          item.file,
-          id: item.id,
-          title: item.title,
-          titleHebrew: item.titleHebrew,
-        );
-      } catch (_) {
-        if (!mounted) return;
-        _openReaderWithVersion(item, null, item.file, null);
-        return;
-      }
-      if (!mounted) return;
-      final hasVersions = content.versions != null && content.versions!.isNotEmpty;
-      if (hasVersions) {
-        final lastPlayed = await LastPlayedService.getLastPlayedVersion(item.id);
-        if (!mounted) return;
-        final selected = await showDialog<String?>(
-          context: context,
-          builder: (context) => _VersionPickerDialog(
-            prayerTitle: item.title,
-            versions: content!.versions!,
-            useFolderLayout: false,
-            lastPlayedVersionId: lastPlayed,
-          ),
-        );
-        if (!mounted) return;
-        songFolderId = selected;
-        prayerFile = item.file;
-      } else {
-        prayerFile = item.file;
-      }
     }
 
     if (_useCloudIndex && songFolderId != null) {

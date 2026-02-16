@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../config/cdn_config.dart';
 import '../config/env_config.dart';
 import '../models/prayer.dart';
+import 'cache_keys_service.dart';
 import 'prayer_service.dart';
 
 /// Fetches and caches index.json from CDN.
@@ -33,12 +34,16 @@ class CloudIndexService {
     return '${dir.path}/$_indexFilename';
   }
 
+  /// Last HTTP status code when fetch failed (401, 404, etc). Null if network error or timeout.
+  static int? lastFetchStatus;
+
   /// Fetch index.json from CDN and cache locally.
   /// Returns [PrayerIndex] or null if fetch fails or cloud is disabled.
   static Map<String, String> get _authHeaders =>
       {'X-App-Service-Key': EnvConfig.downloadKey};
 
   static Future<PrayerIndex?> fetchIndex() async {
+    lastFetchStatus = null;
     if (!CdnConfig.isCloudEnabled) return null;
 
     final url = CdnConfig.indexUrl!;
@@ -52,6 +57,7 @@ class CloudIndexService {
       );
 
       if (response.statusCode != 200) {
+        lastFetchStatus = response.statusCode;
         debugPrint('CloudIndexService: fetch failed ${response.statusCode}');
         return null;
       }
@@ -68,9 +74,11 @@ class CloudIndexService {
       final dir = await _getKolenuDir();
       final file = File('${dir.path}/$_indexFilename');
       await file.writeAsString(response.body);
+      await CacheKeysService.saveCacheKeys();
 
       return index;
     } catch (e, st) {
+      lastFetchStatus = null;
       debugPrint('CloudIndexService fetch error: $e\n$st');
       return null;
     }
@@ -85,9 +93,9 @@ class CloudIndexService {
     if (EnvConfig.keyName.isEmpty || EnvConfig.downloadKey.isEmpty) {
       throw Exception(
         'CDN keys not configured. Run with keys loaded:\n'
-        '  source ../security/set_keys.sh <key_directory>\n'
+        '  source ../tool/set_keys.sh <version>\n'
         '  ./run.sh run\n'
-        'Example: source ../security/set_keys.sh dummy',
+        'Example: source setenv.sh dummy',
       );
     }
 
@@ -107,7 +115,7 @@ class CloudIndexService {
       if (response.statusCode == 401) {
         throw Exception(
           'CDN returned 401 Unauthorized. The download key may be missing or wrong.\n'
-          'Run: source ../security/set_keys.sh <key_directory> then ./run.sh run',
+          'Run: source setenv.sh <version> then ./run.sh run',
         );
       }
       if (response.statusCode != 200) {
@@ -127,6 +135,7 @@ class CloudIndexService {
       final dir = await _getKolenuDir();
       final file = File('${dir.path}/$_indexFilename');
       await file.writeAsString(response.body);
+      await CacheKeysService.saveCacheKeys();
 
       return index;
     } on http.ClientException catch (e) {
@@ -143,6 +152,7 @@ class CloudIndexService {
 
   /// Load index from local cache (for offline or fallback).
   /// Returns null if cache is empty or invalid.
+  /// Does not validate keys; caller must ensure checkKeysAndClearIfChanged was run on app start.
   static Future<PrayerIndex?> loadFromCache() async {
     try {
       final path = await getCachedIndexPath();

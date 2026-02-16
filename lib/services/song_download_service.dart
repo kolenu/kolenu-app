@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../config/cdn_config.dart';
 import '../config/env_config.dart';
+import 'cache_keys_service.dart';
 
 /// Per cloud.md: Mock for prototype. No receipt validation.
 bool isSubscribed() => true;
@@ -151,6 +152,7 @@ class SongDownloadService {
       }
 
       await _atomicInstall(downloadDir, folder);
+      await CacheKeysService.saveCacheKeys();
     } finally {
       if (await downloadDir.exists()) {
         await downloadDir.delete(recursive: true);

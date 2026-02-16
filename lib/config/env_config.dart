@@ -1,12 +1,22 @@
+import 'embedded_keys.dart';
+
 /// Compile-time environment config from --dart-define.
-/// String.fromEnvironment must be used in const context to work.
+/// When dart-define values are empty, falls back to embedded dummy keys.
 class EnvConfig {
   EnvConfig._();
 
-  static const String keyName =
-      String.fromEnvironment('KOLENU_KEY_NAME', defaultValue: '');
-  static const String downloadKey =
-      String.fromEnvironment('KOLENU_DOWNLOAD_KEY', defaultValue: '');
-  static const String audioKey =
-      String.fromEnvironment('KOLENU_AUDIO_KEY', defaultValue: '');
+  static String get keyName {
+    final v = String.fromEnvironment('KOLENU_KEY_NAME', defaultValue: '');
+    return v.isNotEmpty ? v : EmbeddedKeys.keyName;
+  }
+
+  static String get downloadKey {
+    final v = String.fromEnvironment('KOLENU_DOWNLOAD_KEY', defaultValue: '');
+    return v.isNotEmpty ? v : EmbeddedKeys.downloadKey;
+  }
+
+  static String get audioKey {
+    final v = String.fromEnvironment('KOLENU_AUDIO_KEY', defaultValue: '');
+    return v.isNotEmpty ? v : EmbeddedKeys.audioKey;
+  }
 }
