@@ -28,9 +28,9 @@ echo ""
 
 echo "Setting environment variables for Kolenu app..."
 
-pushd "$WORKSPACE/tool" > /dev/null
+pushd "$WORKSPACE/keys" > /dev/null
 if [[ ! -f "set_keys.sh" ]]; then
-    echo "Error: set_keys.sh not found in $WORKSPACE/tool"
+    echo "Error: set_keys.sh not found in $WORKSPACE/keys"
     popd > /dev/null
     return 1
 fi

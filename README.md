@@ -2,11 +2,11 @@
 
 Kolenu is a Hebrew prayer learning application for teens and adults learning to read Hebrew prayers through synchronized audio-text highlighting, interactive repetition practice, and AI-powered pronunciation feedback.
 
-## Features (Phase 1 — done)
+## Features
 
-- **Prayer list** — Shema and Modeh Ani; tap to open the reader.
-- **Reader** — Hebrew text (RTL), word-by-word display with current-word highlighting synced to audio.
-- **Audio** — Play/pause via `just_audio`; optional sentence mode (pause at sentence end, Repeat / Next). When audio is missing, **Play with TTS** uses device text-to-speech (Hebrew).
+- **Prayer list** — Tap to open the reader.
+- **Reader** — Hebrew text, word-by-word display with current-word highlighting synced to audio.
+- **Audio** — Play/pause; optional sentence mode (pause at sentence end, Repeat / Next). When audio is missing, **Play with TTS** uses device text-to-speech (Hebrew).
 - **English tips** — Toggle “Tips” to show translations under each word; tap a word to show its translation.
 - **Offline** — Content and audio load from assets; no network required.
 - **Accessibility** — Semantics for play/pause, Sentence mode, Tips, Repeat/Next, list items, TTS button.
@@ -52,12 +52,13 @@ are **NOT licensed** under the Apache License 2.0:
 
 - Hebrew prayer texts
 - Translations and transliterations
-- Audio recordings
+- Melody, song and audio recordings
 - Nusach, accent, or speed variations
 - Educational or liturgical materials
 
+
 All such content is proprietary and/or used under separate licenses
-and permissions.
+and permissions from us or third-party providers.
 
 This repository contains **sample assets only**, for
 development and demonstration purposes.

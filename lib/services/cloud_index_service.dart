@@ -93,7 +93,7 @@ class CloudIndexService {
     if (EnvConfig.keyName.isEmpty || EnvConfig.downloadKey.isEmpty) {
       throw Exception(
         'CDN keys not configured. Run with keys loaded:\n'
-        '  source ../tool/set_keys.sh <version>\n'
+        '  source ../keys/set_keys.sh <version>\n'
         '  ./run.sh run\n'
         'Example: source setenv.sh dummy',
       );
