@@ -1,0 +1,36 @@
+Kolenu App
+Copyright © 2026 Kolenu Project
+
+This product includes software developed by the Kolenu Project
+and its contributors.
+
+------------------------------------------------------------
+IMPORTANT NOTICE REGARDING CONTENT
+------------------------------------------------------------
+
+This repository contains ONLY the application source code.
+
+The following are NOT included and are NOT licensed under the
+Apache License 2.0:
+
+- Prayer texts (Hebrew or translated)
+- Audio recordings
+- Nusach or accent variations
+- Educational or liturgical content
+- Licensed or proprietary religious material
+
+All religious texts, audio recordings, and associated metadata
+used by the Kolenu app are proprietary and/or used under
+separate licenses and permissions.
+
+------------------------------------------------------------
+TRADEMARK NOTICE
+------------------------------------------------------------
+
+“Kolenu” and the Kolenu logo are trademarks of the Kolenu Project.
+This license does not grant permission to use the name, logo, or
+branding for derivative works or distributions without permission.
+
+------------------------------------------------------------
+END OF NOTICE
+------------------------------------------------------------

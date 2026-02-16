@@ -1,0 +1,910 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+
+import '../data/playback_speed.dart';
+import '../models/prayer.dart';
+import '../services/audio_decryption_service.dart';
+import '../services/loop_preference_service.dart';
+import '../services/playback_speed_preference_service.dart';
+import '../services/prayer_service.dart';
+import '../services/song_download_service.dart';
+import 'practice_dialog.dart';
+
+class PrayerReaderScreen extends StatefulWidget {
+  const PrayerReaderScreen({
+    super.key,
+    required this.prayerId,
+    required this.prayerFile,
+    required this.title,
+    required this.titleHebrew,
+    this.selectedVersionId,
+    this.difficulty,
+    this.localSongFolderId,
+  });
+
+  final String prayerId;
+  final String prayerFile;
+  final String title;
+  final String titleHebrew;
+  /// If set, use this version's audio when prayer has multiple versions.
+  final String? selectedVersionId;
+  /// Optional difficulty level (L1–L4) for practice hints.
+  final String? difficulty;
+  /// When set, load content and audio from local Songs/ folder (cloud download).
+  final String? localSongFolderId;
+
+  @override
+  State<PrayerReaderScreen> createState() => _PrayerReaderScreenState();
+}
+
+class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
+  PrayerContent? _content;
+  bool _loading = true;
+  String? _error;
+  String? _audioError;
+
+  late AudioPlayer _player;
+  File? _currentAudioFile; // Track temporary decrypted audio file for cleanup
+  StreamSubscription<Duration>? _positionSub;
+  int _currentWordIndex = -1;
+  int _currentPage = 0;
+  bool _sentenceMode = false;
+  int? _sentencePausedAt;
+  bool _showTips = false;
+  int? _tappedWordIndex;
+  PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
+  bool _loopOne = false;
+  /// Sentences practiced in this session (by index).
+  final Set<int> _practicedSentencesInSession = {};
+
+  static const String _prayersAssetPath = 'assets/audio';
+
+  /// Base path for this prayer's assets (e.g. "shema" when file is "shema/content.json", else "").
+  String get _prayerAssetBase {
+    final f = widget.prayerFile;
+    final i = f.lastIndexOf('/');
+    return i >= 0 ? f.substring(0, i) : '';
+  }
+
+  /// Number of sentences shown on each screen page (more text per page).
+  static const int _sentencesPerPage = 2;
+
+  int _pageCount(PrayerContent c) {
+    if (c.sentences.isEmpty) return c.words.isEmpty ? 1 : 1;
+    return (c.sentences.length + _sentencesPerPage - 1) ~/ _sentencesPerPage;
+  }
+
+  int _startWordIndexForPage(PrayerContent c, int page) {
+    if (c.words.isEmpty) return 0;
+    if (c.sentences.isEmpty) return 0;
+    if (page <= 0) return 0;
+    final firstSentence = (page * _sentencesPerPage).clamp(0, c.sentences.length - 1);
+    if (firstSentence == 0) return 0;
+    final endPrev = c.sentenceEndWordIndex(firstSentence - 1);
+    return endPrev < 0 ? 0 : endPrev + 1;
+  }
+
+  int _endWordIndexForPage(PrayerContent c, int page) {
+    if (c.words.isEmpty) return 0;
+    if (c.sentences.isEmpty) return c.words.length - 1;
+    final lastSentence = ((page + 1) * _sentencesPerPage - 1).clamp(0, c.sentences.length - 1);
+    final end = c.sentenceEndWordIndex(lastSentence);
+    return end < 0 ? c.words.length - 1 : end;
+  }
+
+  int _sentenceIndexForWord(PrayerContent c, int wordIndex) {
+    if (c.sentences.isEmpty || wordIndex < 0) return 0;
+    for (var s = 0; s < c.sentences.length; s++) {
+      final endIdx = c.sentenceEndWordIndex(s);
+      if (endIdx >= 0 && wordIndex <= endIdx) return s;
+    }
+    return (c.sentences.length - 1).clamp(0, c.sentences.length);
+  }
+
+  /// Duration of the text content in seconds (last word end). When audio is longer, we loop.
+  double _contentDurationSeconds(PrayerContent? c) {
+    if (c == null || c.words.isEmpty) return 0;
+    return c.words.last.end;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _player = AudioPlayer();
+    _loadPlaybackSpeed();
+    _loadLoopPreference();
+    _loadContent();
+  }
+
+  Future<void> _loadPlaybackSpeed() async {
+    final speed = await PlaybackSpeedPreferenceService.getSpeed();
+    if (mounted) {
+      setState(() => _playbackSpeed = speed);
+    }
+  }
+
+  Future<void> _loadLoopPreference() async {
+    final loop = await LoopPreferenceService.getLoopOne();
+    if (mounted) {
+      setState(() => _loopOne = loop);
+    }
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    _player.dispose();
+    // Clean up temporary decrypted audio file
+    if (_currentAudioFile != null) {
+      AudioDecryptionService.deleteTemporaryFile(_currentAudioFile!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadContent() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      PrayerContent content;
+      String? audioFile;
+
+      if (widget.localSongFolderId != null) {
+        content = await PrayerService.loadPrayerContentFromLocal(
+          widget.localSongFolderId!,
+          id: widget.prayerId,
+          title: widget.title,
+          titleHebrew: widget.titleHebrew,
+        );
+        audioFile = 'audio.enc';
+      } else {
+        content = await PrayerService.loadPrayerContent(
+          widget.prayerFile,
+          id: widget.prayerId,
+          title: widget.title,
+          titleHebrew: widget.titleHebrew,
+        );
+        audioFile = content.resolveAudioFile(widget.selectedVersionId, []);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _content = content;
+        _loading = false;
+        if (audioFile == null) _audioError = 'Audio not available';
+      });
+      if (audioFile != null) {
+        if (widget.localSongFolderId != null) {
+          _initAudioFromLocal(widget.localSongFolderId!);
+        } else {
+          final base = _prayerAssetBase;
+          final path = base.isEmpty ? audioFile : '$base/$audioFile';
+          _initAudio(path);
+        }
+      }
+    } catch (e, st) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+      debugPrint('PrayerReaderScreen load error: $e\n$st');
+    }
+  }
+
+  Future<void> _initAudioFromLocal(String songFolderId) async {
+    try {
+      final songPath = await SongDownloadService.getSongPath(songFolderId);
+      final encryptedFile = File('$songPath/audio.enc');
+      if (!await encryptedFile.exists()) {
+        throw Exception('audio.enc not found');
+      }
+      final decryptedFile = await AudioDecryptionService.decryptFromFile(encryptedFile);
+      _currentAudioFile = decryptedFile;
+      await _player.setFilePath(decryptedFile.path);
+      await _setupPlayerAndSync();
+    } catch (e, st) {
+      debugPrint('Audio init error (local): $e\n$st');
+      if (mounted) {
+        setState(() => _audioError = 'Audio not available');
+      }
+    }
+  }
+
+  Future<void> _initAudio(String audioFile) async {
+    try {
+      final encryptedFile = audioFile.endsWith('.enc') ? audioFile : audioFile.replaceAll('.mp3', '.enc');
+      final assetPath = '$_prayersAssetPath/$encryptedFile';
+
+      final decryptedFile = await AudioDecryptionService.decryptAudioFile(assetPath);
+      _currentAudioFile = decryptedFile;
+      await _player.setFilePath(decryptedFile.path);
+      await _setupPlayerAndSync();
+    } catch (e, st) {
+      debugPrint('Audio init error: $e\n$st');
+      if (mounted) {
+        setState(() => _audioError = 'Audio not available');
+      }
+    }
+  }
+
+  Future<void> _setupPlayerAndSync() async {
+    await _player.setSpeed(_playbackSpeed.rate);
+    await _player.setLoopMode(_loopOne ? LoopMode.one : LoopMode.off);
+    final offset = _content?.audioOffsetSeconds ?? 0;
+    if (offset > 0) {
+      await _player.seek(Duration(milliseconds: (offset * 1000).round()));
+    }
+    _positionSub = _player.positionStream.listen((pos) {
+      if (!mounted) return;
+      double sec = pos.inMilliseconds / 1000.0;
+      final content = _content;
+      final offset = content?.audioOffsetSeconds ?? 0;
+      sec = (sec - offset).clamp(0.0, double.infinity);
+      final duration = content != null ? _contentDurationSeconds(content) : 0.0;
+      if (duration > 0) {
+        if (_loopOne) {
+          sec = sec % duration;
+        } else if (sec > duration) {
+          sec = duration;
+        }
+      }
+      final secForSync = sec;
+      final newIndex = _wordIndexAtPosition(secForSync);
+      if (_currentWordIndex == (content?.words.length ?? 0) - 1 && newIndex < _currentWordIndex) {
+        return;
+      }
+      setState(() {
+        _currentWordIndex = newIndex;
+      });
+      if (_sentenceMode && content != null) {
+        _checkSentencePause(secForSync);
+      }
+      if (content != null && content.sentences.isNotEmpty && _currentWordIndex >= 0) {
+        final sentence = _sentenceIndexForWord(content, _currentWordIndex);
+        final pageForSentence = sentence ~/ _sentencesPerPage;
+        if (pageForSentence != _currentPage && _sentencePausedAt == null) {
+          setState(() {
+            _currentPage = pageForSentence;
+          });
+        }
+      }
+    });
+    await _player.play();
+    if (mounted) setState(() {});
+  }
+
+  int _wordIndexAtPosition(double sec) {
+    final words = _content?.words ?? [];
+    if (words.isEmpty) return -1;
+    
+    // Find the word that contains this time
+    for (var i = 0; i < words.length; i++) {
+      if (sec >= words[i].start && sec < words[i].end) return i;
+    }
+    
+    // If past last word, stay on last word and don't jump back
+    if (sec >= words.last.end) {
+      return words.length - 1;
+    }
+    
+    // If before first word
+    if (sec < words.first.start) return -1;
+    
+    // In a gap between words: find the closest word
+    // Use the word that ended most recently (keep highlighting last word until next starts)
+    for (var i = 0; i < words.length - 1; i++) {
+      if (sec >= words[i].end && sec < words[i + 1].start) {
+        return i; // Stay on previous word during gap
+      }
+    }
+    
+    return -1;
+  }
+
+  void _checkSentencePause(double sec) {
+    final content = _content!;
+    if (content.sentences.isEmpty) return;
+    for (var s = 0; s < content.sentences.length; s++) {
+      final endIdx = content.sentenceEndWordIndex(s);
+      if (endIdx >= 0 &&
+          endIdx < content.words.length &&
+          sec >= content.words[endIdx].end) {
+        if (_sentencePausedAt == null) {
+          _player.pause();
+          if (mounted) {
+            setState(() => _sentencePausedAt = s);
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  Future<void> _play() async {
+    _sentencePausedAt = null;
+    await _player.play();
+    setState(() {});
+  }
+
+  Future<void> _pause() async {
+    await _player.pause();
+    setState(() {});
+  }
+
+  Future<void> _setPlaybackSpeed(PlaybackSpeed speed) async {
+    setState(() => _playbackSpeed = speed);
+    await _player.setSpeed(speed.rate);
+    await PlaybackSpeedPreferenceService.setSpeed(speed);
+  }
+
+  Future<void> _seekToContentTime(double contentSec) async {
+    final content = _content;
+    if (content == null) return;
+    final duration = _contentDurationSeconds(content);
+    if (duration <= 0) return;
+    final offset = content.audioOffsetSeconds;
+    final pos = _player.position.inMilliseconds / 1000.0;
+    final contentPos = (pos - offset).clamp(0.0, double.infinity);
+    final cycle = contentPos >= duration ? (contentPos / duration).floor() : 0;
+    final seekSec = offset + cycle * duration + contentSec;
+    await _player.seek(Duration(milliseconds: (seekSec * 1000).round()));
+  }
+
+  Future<void> _goToPage(int page) async {
+    final content = _content;
+    if (content == null) return;
+    final pageCount = _pageCount(content);
+    final newPage = page.clamp(0, pageCount - 1);
+    if (!mounted) return;
+    setState(() {
+      _currentPage = newPage;
+      _sentencePausedAt = null;
+    });
+    if (content.audio != null && _audioError == null && content.words.isNotEmpty) {
+      final startWordIdx = _startWordIndexForPage(content, newPage);
+      if (startWordIdx < content.words.length) {
+        final startSec = content.words[startWordIdx].start;
+        await _seekToContentTime(startSec);
+      }
+    }
+  }
+
+  Future<void> _onNextSentence() async {
+    if (_sentencePausedAt == null) return;
+    final content = _content!;
+    final nextSentence = _sentencePausedAt! + 1;
+    if (nextSentence >= content.sentences.length) {
+      if (mounted) setState(() => _sentencePausedAt = null);
+      await _player.play();
+      return;
+    }
+    final startWordIdx = content.sentenceEndWordIndex(_sentencePausedAt!) + 1;
+    if (startWordIdx < content.words.length) {
+      final startSec = content.words[startWordIdx].start;
+      await _seekToContentTime(startSec);
+    }
+    if (mounted) setState(() => _sentencePausedAt = null);
+    await _player.play();
+  }
+
+  Future<void> _onRepeatSentence() async {
+    if (_sentencePausedAt == null) return;
+    final content = _content!;
+    final startWordIdx = _sentencePausedAt! == 0
+        ? 0
+        : content.sentenceEndWordIndex(_sentencePausedAt! - 1) + 1;
+    if (startWordIdx < content.words.length) {
+      final startSec = content.words[startWordIdx].start;
+      await _seekToContentTime(startSec);
+    }
+    if (mounted) setState(() => _sentencePausedAt = null);
+    await _player.play();
+  }
+
+  void _openPracticeDialog(BuildContext context) {
+    String? sentenceText;
+    int? sentenceIndex;
+    int totalSentences = 0;
+    final content = _content;
+    if (content != null && content.sentences.isNotEmpty) {
+      sentenceIndex = (_currentPage * _sentencesPerPage).clamp(0, content.sentences.length - 1);
+      sentenceText = content.sentences[sentenceIndex];
+      totalSentences = content.sentences.length;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => PracticeDialog(
+        sentenceText: sentenceText,
+        difficulty: widget.difficulty,
+        sentenceIndex: sentenceIndex,
+        totalSentences: totalSentences,
+        practicedCount: _practicedSentencesInSession.length,
+      ),
+    ).then((_) {
+      if (sentenceIndex != null && mounted) {
+        setState(() {
+          _practicedSentencesInSession.add(sentenceIndex!);
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Back',
+        ),
+        title: Text(widget.title),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Options',
+            onSelected: (value) async {
+              if (value == 'sentence_mode') {
+                setState(() {
+                  _sentenceMode = !_sentenceMode;
+                  if (!_sentenceMode) _sentencePausedAt = null;
+                });
+              } else if (value == 'loop') {
+                final v = !_loopOne;
+                setState(() => _loopOne = v);
+                await LoopPreferenceService.setLoopOne(v);
+                await _player.setLoopMode(v ? LoopMode.one : LoopMode.off);
+              } else if (value == 'translations') {
+                setState(() {
+                  _showTips = !_showTips;
+                  if (!_showTips) _tappedWordIndex = null;
+                });
+              } else if (value == 'practice') {
+                _openPracticeDialog(context);
+              }
+            },
+            itemBuilder: (context) {
+              final canSentence = _content != null && _content!.sentences.isNotEmpty;
+              final canLoop = _content != null && _content!.audio != null && _audioError == null;
+              final canTranslations = _content != null && _content!.words.isNotEmpty;
+              return [
+                if (canSentence)
+                  PopupMenuItem(
+                    value: 'sentence_mode',
+                    child: Text(_sentenceMode ? 'Sentence mode: On' : 'Sentence mode: Off'),
+                  ),
+                if (canLoop)
+                  PopupMenuItem(
+                    value: 'loop',
+                    child: Text(_loopOne ? 'Loop: On' : 'Loop: Off'),
+                  ),
+                if (canTranslations)
+                  PopupMenuItem(
+                    value: 'translations',
+                    child: Text(_showTips ? 'Translations: On' : 'Translations: Off'),
+                  ),
+                const PopupMenuItem(
+                  value: 'practice',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.mic_rounded, size: 22),
+                      SizedBox(width: 12),
+                      Text('Practice pronunciation'),
+                    ],
+                  ),
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: _buildBody(),
+      ),
+      bottomNavigationBar: _content != null ? _buildPlayBar() : null,
+    );
+  }
+
+  Widget _buildPlayBar() {
+    final content = _content!;
+    final hasAudio = content.audio != null && _audioError == null;
+    final playing = _player.playing;
+    final pausedAt = _sentencePausedAt;
+    final pageCount = _pageCount(content);
+    final canPrev = _currentPage > 0;
+    final canNext = _currentPage < pageCount - 1;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Semantics(
+                  label: canPrev ? 'Previous page' : 'Previous page (disabled)',
+                  button: true,
+                  child: IconButton.filled(
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    onPressed: canPrev ? () => _goToPage(_currentPage - 1) : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (hasAudio)
+                  Semantics(
+                    label: playing && pausedAt == null ? 'Pause' : 'Play',
+                    button: true,
+                    child: FilledButton.icon(
+                      icon: Icon(playing && pausedAt == null ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                      label: Text(playing && pausedAt == null ? 'Pause' : 'Play'),
+                      onPressed: pausedAt != null
+                          ? null
+                          : () async {
+                              if (playing) {
+                                await _pause();
+                              } else {
+                                await _play();
+                              }
+                            },
+                    ),
+                  ),
+                if (hasAudio) const SizedBox(width: 8),
+                if (hasAudio)
+                  PopupMenuButton<PlaybackSpeed>(
+                    tooltip: 'Playback speed',
+                    initialValue: _playbackSpeed,
+                    onSelected: _setPlaybackSpeed,
+                    icon: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _playbackSpeed.displayName.split(' ')[0], // "Practice", "Synagogue", or "Fluent"
+                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.onSecondaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
+                      final selected = speed == _playbackSpeed;
+                      return PopupMenuItem<PlaybackSpeed>(
+                        value: speed,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  selected ? Icons.check_circle : Icons.circle_outlined,
+                                  size: 20,
+                                  color: selected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.outline,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        speed.displayName,
+                                        style: TextStyle(
+                                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                                        ),
+                                      ),
+                                      Text(
+                                        speed.description,
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                if (hasAudio) const SizedBox(width: 8),
+                Semantics(
+                  label: canNext ? 'Next page' : 'Next page (disabled)',
+                  button: true,
+                  child: IconButton.filled(
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    onPressed: canNext ? () => _goToPage(_currentPage + 1) : null,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Page ${_currentPage + 1} of $pageCount',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            if (hasAudio && pausedAt != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Semantics(
+                    label: 'Repeat current sentence',
+                    button: true,
+                    child: FilledButton.tonal(
+                      onPressed: _onRepeatSentence,
+                      child: const Text('Repeat'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Semantics(
+                    label: 'Next sentence',
+                    button: true,
+                    child: FilledButton(
+                      onPressed: _onNextSentence,
+                      child: const Text('Next sentence'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _hasVersionMetadata(PrayerContent content) {
+    return (content.performerName != null && content.performerName!.isNotEmpty) ||
+        (content.audioLicense != null && content.audioLicense!.isNotEmpty) ||
+        (content.textLicense != null && content.textLicense!.isNotEmpty) ||
+        (content.attribution != null && content.attribution!.isNotEmpty);
+  }
+
+  String _versionMetadataLine(PrayerContent content) {
+    final parts = <String>[];
+    if (content.performerName != null && content.performerName!.isNotEmpty) {
+      parts.add(content.performerName!);
+    }
+    if (content.audioLicense != null && content.audioLicense!.isNotEmpty) {
+      parts.add('Audio: ${content.audioLicense!}');
+    }
+    if (content.textLicense != null && content.textLicense!.isNotEmpty) {
+      parts.add('Text: ${content.textLicense!}');
+    }
+    if (content.attribution != null && content.attribution!.isNotEmpty) {
+      parts.add(content.attribution!);
+    }
+    return parts.join(' · ');
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _content == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            'This prayer is not available.',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final content = _content!;
+    const padding = 24.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportHeight = constraints.maxHeight;
+        final viewportWidth = constraints.maxWidth;
+        final hasMeta = _hasVersionMetadata(content);
+        final topSectionHeight = 120.0 +
+            (_audioError != null ? 80.0 : 0) +
+            (content.description != null && content.description!.isNotEmpty ? 40.0 : 0) +
+            (hasMeta ? 32.0 : 0);
+        final minTextHeight = (viewportHeight - padding * 2 - topSectionHeight).clamp(200.0, double.infinity);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(padding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_audioError != null)
+                Material(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onErrorContainer),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _audioError!,
+                                style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_audioError != null) const SizedBox(height: 16),
+              Text(
+                content.titleHebrew,
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              if (content.description != null && content.description!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  content.description!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (_hasVersionMetadata(content)) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _versionMetadataLine(content),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: minTextHeight,
+                    maxWidth: viewportWidth - padding * 2,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: viewportWidth - padding * 2),
+                      child: _buildWordByWord(content),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWordByWord(PrayerContent content) {
+    final words = content.words;
+    if (words.isEmpty) {
+      return Text(
+        content.text,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              height: 1.8,
+              fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
+            ),
+        textAlign: TextAlign.center,
+      );
+    }
+    final start = _startWordIndexForPage(content, _currentPage);
+    final end = _endWordIndexForPage(content, _currentPage);
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      runAlignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = start; i <= end && i < words.length; i++)
+          _buildWordChip(words[i], i),
+      ],
+    );
+  }
+
+  Widget _buildWordChip(WordSegment w, int i) {
+    final isCurrent = i == _currentWordIndex;
+    final isTapped = i == _tappedWordIndex;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      child: GestureDetector(
+        onTap: () async {
+          // Seek to word start and play if audio available
+          if (_content != null && w.start >= 0) {
+            final offset = _content!.audioOffsetSeconds;
+            final seekPos = Duration(milliseconds: ((w.start + offset) * 1000).round());
+            await _player.seek(seekPos);
+            if (!_player.playing) {
+              await _player.play();
+            }
+            // Don't toggle tappedWordIndex - let currentWordIndex from audio position handle highlighting
+          } else {
+            // No audio, just toggle translation display
+            setState(() {
+              _tappedWordIndex = _tappedWordIndex == i ? null : i;
+            });
+          }
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : (isTapped
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : null),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                w.word,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
+                      height: 1.4,
+                      fontWeight: isCurrent ? FontWeight.w600 : null,
+                    ),
+              ),
+            ),
+            if (_showTips && w.translation != null && w.translation!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  w.translation!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                  textDirection: TextDirection.ltr,
+                ),
+              )
+            else if (isTapped && w.translation != null && w.translation!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  w.translation!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                  textDirection: TextDirection.ltr,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

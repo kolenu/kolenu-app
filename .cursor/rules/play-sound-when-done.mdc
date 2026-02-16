@@ -1,0 +1,13 @@
+r---
+description: Play a Mac system sound when completing the user's task or command
+globs:
+alwaysApply: true
+---
+
+When you have finished completing the user's requested task or command, run this in the terminal so they get an audible notification on Mac:
+
+```bash
+afplay /System/Library/Sounds/Glass.aiff
+```
+
+Run it once at the end of your response after the work is done. If the user prefers a different sound, they can say so (e.g. Ping, Tink, Pop).

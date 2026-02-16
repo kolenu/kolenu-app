@@ -1,0 +1,7 @@
+# No token burn on audio/text blobs
+assets/**/*.mp3
+assets/**/*.json
+
+# Ignore private and auto-generated assets
+assets/private/
+assets/generated/
