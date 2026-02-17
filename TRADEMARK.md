@@ -1,7 +1,7 @@
 # Trademark Policy
 
 The name **Kolenu**, the Kolenu logo, and related branding are trademarks
-of the Kolenu Project.
+of the **DigiMint Inc.**.
 
 ## What this means
 
@@ -35,4 +35,4 @@ many well-known projects.
 
 ---
 
-© 2026 Kolenu Project
+© 2026 DigiMint Inc.

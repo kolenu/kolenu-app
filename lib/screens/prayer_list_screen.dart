@@ -10,6 +10,7 @@ import '../services/progress_service.dart';
 import '../services/song_download_service.dart' show SongDownloadService, isSubscribed;
 import 'playlist_screen.dart';
 import 'prayer_reader_screen.dart';
+import 'settings_screen.dart';
 
 class PrayerListScreen extends StatefulWidget {
   const PrayerListScreen({super.key});
@@ -121,11 +122,19 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                     builder: (context) => const PlaylistScreen(),
                   ),
                 );
+              } else if (value == 'settings') {
+                if (!context.mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'play_playlist', child: Text('Play default playlist')),
               const PopupMenuItem(value: 'playlist', child: Text('Edit default playlist')),
+              const PopupMenuItem(value: 'settings', child: Text('Settings')),
             ],
           ),
         ],

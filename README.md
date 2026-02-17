@@ -74,6 +74,28 @@ See [NOTICE](NOTICE) for details.
 
 ---
 
+### Important Usage Notice
+
+Kolenu provides Jewish prayer content, melodies, and guidance for personal, educational, and religious study purposes. While we aim for accuracy, Kolenu does not guarantee completeness, correctness, or suitability for any particular practice or ritual.
+
+Users should not rely solely on Kolenu for religious decisions or guidance. Always consult a qualified rabbi, cantor, or teacher for personal or communal matters.
+
+Kolenu is not a substitute for professional advice in health, safety, or legal matters.
+
+For the full usage disclaimer and IP reporting procedures, see [USAGE_DISCLAIMER.md](USAGE_DISCLAIMER.md).
+
+---
+
+### Copyright Disclaimer & Takedown Policy
+
+For detailed information about copyright ownership, licensing of specific
+content, and our "Notice and Notice" takedown procedure to report copyright
+concerns, please see [COPYRIGHT_DISCLAIMER.md](COPYRIGHT_DISCLAIMER.md).
+
+Contact: info@digimint.ca
+
+---
+
 ### Production Assets & Keys
 
 This repository does not include production audio encryption keys or licensed audio access.
@@ -86,7 +108,7 @@ Official App Store builds include access to licensed audio distributed via secur
 
 ### Trademark Notice
 
-“Kolenu” and the Kolenu logo are trademarks of the Kolenu Project.
+“Kolenu” and the Kolenu logo are trademarks of the DigiMint Inc.
 
 This license does not grant permission to use the project name, logo,
 or branding for derivative works or distributions.
