@@ -10,7 +10,7 @@ This repository is open source, but **the trademark is not**.
 You may:
 - Fork the source code
 - Modify the source code
-- Redistribute the source code under the Apache License 2.0
+- Redistribute the source code under BSL 1.2
 
 You may NOT:
 - Use the name “Kolenu”

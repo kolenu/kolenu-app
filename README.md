@@ -33,7 +33,14 @@ flutter test
 ### Source Code License
 
 The application source code in this repository is licensed under the
-**Apache License 2.0**.
+**BSL 1.2 (Business Source License 1.2)**.
+
+Additional Use Grant:
+- Non-commercial use allowed
+- No commercial prayer / music streaming apps
+- No SaaS or subscription-based religious audio services
+
+Change Date: 2030-02-17
 
 You are free to use, modify, and distribute the code in accordance
 with that license. See the `LICENSE` file for full details.
@@ -48,7 +55,7 @@ This repository does **NOT** include the actual content used by the
 Kolenu app.
 
 Specifically, the following are **excluded** from this repository and
-are **NOT licensed** under the Apache License 2.0:
+are **NOT licensed** under BSL 1.2:
 
 - Hebrew prayer texts
 - Translations and transliterations
