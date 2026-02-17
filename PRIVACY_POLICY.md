@@ -1,7 +1,3 @@
-Perfect! Here’s a polished, Apple-ready version of your Privacy Policy. It’s concise, clear, and emphasizes privacy in ways Apple likes.
-
----
-
 # **Privacy Policy – Kolenu**
 
 **Last updated:** February 13, 2026
