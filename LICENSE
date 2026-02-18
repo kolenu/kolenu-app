@@ -1,6 +1,8 @@
-Business Source License 1.2 (BSL 1.2)
+Business Source License 1.2 (BSL)
 
-Copyright (c) 2026 DigiMint Inc.
+Copyright © 2026 DigiMint Inc.
+
+The software source code in this repository, except for content explicitly marked otherwise (including audio recordings, prayer texts, melodies, playlists, metadata, artwork, and other liturgical materials).
 
 Use of this software is governed by this Business Source License 1.2.
 
@@ -38,3 +40,12 @@ OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 For commercial licensing requests, contact DigiMint Inc.
+
+Intent:
+- Encourage learning, transparency, and community contribution
+- Prevent commercial exploitation or cloning of Jewish prayer and religious music applications
+- Protect sustainability, integrity, and mission of the Kolenu project
+
+Plain-English Summary:
+- You may read, study, and modify the code for non-commercial purposes.
+- You may NOT use it to build or run a paid or monetized Jewish prayer or religious music app.
