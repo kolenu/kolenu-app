@@ -14,7 +14,10 @@ void main() {
       expect(item.id, 'shema');
       expect(item.title, 'Shema');
       expect(item.titleHebrew, 'שְׁמַע יִשְׂרָאֵל');
-      expect(item.file, 'words.json'); // prayer-first layout always uses words.json
+      expect(
+        item.file,
+        'words.json',
+      ); // prayer-first layout always uses words.json
       expect(item.difficulty, 'L1');
     });
   });
@@ -74,7 +77,10 @@ void main() {
         text: 'x',
         sentences: ['a', 'b', 'c'],
         sentenceEndWordIndices: [5, 11, 18],
-        words: List.generate(19, (i) => WordSegment(word: '$i', start: 0, end: 1)),
+        words: List.generate(
+          19,
+          (i) => WordSegment(word: '$i', start: 0, end: 1),
+        ),
       );
       expect(content.sentenceEndWordIndex(0), 5);
       expect(content.sentenceEndWordIndex(1), 11);
@@ -91,7 +97,10 @@ void main() {
         text: 'x',
         sentences: ['a', 'b'],
         sentenceEndWordIndices: null,
-        words: List.generate(10, (i) => WordSegment(word: '$i', start: 0, end: 1)),
+        words: List.generate(
+          10,
+          (i) => WordSegment(word: '$i', start: 0, end: 1),
+        ),
       );
       expect(content.sentenceEndWordIndex(0), 4);
       expect(content.sentenceEndWordIndex(1), 9);

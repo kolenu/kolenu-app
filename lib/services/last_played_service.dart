@@ -21,14 +21,19 @@ class LastPlayedService {
     }
   }
 
-  static Future<void> setLastPlayedVersion(String prayerId, String versionId) async {
+  static Future<void> setLastPlayedVersion(
+    String prayerId,
+    String versionId,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyLastPlayed);
     Map<String, dynamic> map = {};
     if (raw != null) {
       try {
         final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) map = Map<String, dynamic>.from(decoded);
+        if (decoded is Map<String, dynamic>) {
+          map = Map<String, dynamic>.from(decoded);
+        }
       } catch (_) {}
     }
     map[prayerId] = versionId;

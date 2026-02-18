@@ -12,8 +12,7 @@ class ThemePreferenceService {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(_keyThemeVariant);
     if (name == null) return KolenuThemeVariant.meadow;
-    final index =
-        KolenuThemeVariant.values.indexWhere((v) => v.name == name);
+    final index = KolenuThemeVariant.values.indexWhere((v) => v.name == name);
     return index >= 0
         ? KolenuThemeVariant.values[index]
         : KolenuThemeVariant.meadow;

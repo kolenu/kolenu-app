@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../config/cdn_config.dart';
 import '../models/prayer.dart';
+import '../services/cache_keys_service.dart';
 import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/last_played_service.dart';
 import '../services/prayer_service.dart';
 import '../services/progress_service.dart';
-import '../services/song_download_service.dart' show SongDownloadService, isSubscribed;
+import '../services/song_download_service.dart'
+    show SongDownloadService, isSubscribed;
 import 'playlist_screen.dart';
 import 'prayer_reader_screen.dart';
 import 'settings_screen.dart';
@@ -26,6 +28,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   int _streak = 0;
   bool _loading = true;
   String? _error;
+  String _loadingMessage = 'Connecting to the cloud...';
 
   @override
   void initState() {
@@ -38,7 +41,11 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     if (ids.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Playlist is empty. Add prayers in Edit default playlist.')),
+        const SnackBar(
+          content: Text(
+            'Playlist is empty. Add prayers in Edit default playlist.',
+          ),
+        ),
       );
       return;
     }
@@ -52,16 +59,29 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       );
       return;
     }
-    _openReader(item);
+    await _openReader(item);
   }
 
   Future<void> _loadPrayers() async {
     if (!mounted) return;
+    final forceCloudRefresh =
+        await CacheKeysService.consumeCacheClearedMessage();
     setState(() {
       _loading = true;
       _error = null;
       _prayers = [];
+      _loadingMessage = 'Connecting to the cloud...';
     });
+
+    if (forceCloudRefresh && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Security key changed. Connecting to the cloud...'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+
     try {
       PrayerIndex? index;
       bool usedCloud = false;
@@ -70,7 +90,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         index = await CloudIndexService.fetchIndex();
         if (index != null) {
           usedCloud = true;
-        } else {
+        } else if (!forceCloudRefresh) {
           index = await CloudIndexService.loadFromCache();
           if (index != null) usedCloud = true;
         }
@@ -83,12 +103,13 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         }
         throw Exception('Check internet connection and try again.');
       }
+      final resolvedIndex = index;
       if (!mounted) return;
       final streak = await ProgressService.getStreak();
       if (!mounted) return;
       setState(() {
-        _prayers = index!.prayers;
-        _indexVersions = index!.versions;
+        _prayers = resolvedIndex.prayers;
+        _indexVersions = resolvedIndex.versions;
         _useCloudIndex = usedCloud;
         _streak = streak;
         _loading = false;
@@ -96,7 +117,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     } catch (e, st) {
       if (!mounted) return;
       setState(() {
-        _error = e is Exception ? e.toString().replaceFirst('Exception: ', '') : e.toString();
+        _error = e is Exception
+            ? e.toString().replaceFirst('Exception: ', '')
+            : e.toString();
         _loading = false;
       });
       debugPrint('PrayerListScreen load error: $e\n$st');
@@ -117,14 +140,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                 await _playPlaylist();
               } else if (value == 'playlist') {
                 if (!context.mounted) return;
-                Navigator.of(context).push(
+                await Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => const PlaylistScreen(),
                   ),
                 );
               } else if (value == 'settings') {
                 if (!context.mounted) return;
-                Navigator.of(context).push(
+                await Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (context) => const SettingsScreen(),
                   ),
@@ -132,8 +155,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'play_playlist', child: Text('Play default playlist')),
-              const PopupMenuItem(value: 'playlist', child: Text('Edit default playlist')),
+              const PopupMenuItem(
+                value: 'play_playlist',
+                child: Text('Play default playlist'),
+              ),
+              const PopupMenuItem(
+                value: 'playlist',
+                child: Text('Edit default playlist'),
+              ),
               const PopupMenuItem(value: 'settings', child: Text('Settings')),
             ],
           ),
@@ -157,7 +186,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Downloading index from server...',
+                _loadingMessage,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -194,11 +223,11 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               ),
               const SizedBox(height: 16),
               Semantics(
-                label: 'Retry loading prayers',
+                label: 'Retry cloud connection',
                 button: true,
                 child: FilledButton(
                   onPressed: _loadPrayers,
-                  child: const Text('Retry'),
+                  child: const Text('Retry Cloud Connection'),
                 ),
               ),
             ],
@@ -219,7 +248,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.35,
+                ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: theme.colorScheme.primary.withValues(alpha: 0.2),
@@ -252,7 +283,8 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                               ? 'Good to see you here today.'
                               : 'You’ve been here $_streak days in a row — we’re glad you’re here.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.9),
+                            color: theme.colorScheme.onPrimaryContainer
+                                .withValues(alpha: 0.9),
                             height: 1.35,
                           ),
                         ),
@@ -281,7 +313,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     null,
   ];
 
-  List<MapEntry<String?, List<PrayerListItem>>> _groupPrayersByCategory(List<PrayerListItem> prayers) {
+  List<MapEntry<String?, List<PrayerListItem>>> _groupPrayersByCategory(
+    List<PrayerListItem> prayers,
+  ) {
     final map = <String?, List<PrayerListItem>>{};
     for (final p in prayers) {
       final cat = p.category;
@@ -324,7 +358,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.6,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -335,7 +371,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               ),
               title: Text(
                 item.title,
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -406,7 +444,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     }
 
     if (_useCloudIndex && songFolderId != null) {
-      final downloaded = await SongDownloadService.isSongDownloaded(songFolderId);
+      final downloaded = await SongDownloadService.isSongDownloaded(
+        songFolderId,
+      );
       if (!downloaded) {
         if (!isSubscribed()) {
           if (!mounted) return;
@@ -457,26 +497,28 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       LastPlayedService.setLastPlayedVersion(item.id, selectedVersionId);
     }
     final now = DateTime.now();
-    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     ProgressService.recordOpenDate(dateStr);
     ProgressService.markPrayerCompleted(item.id);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => PrayerReaderScreen(
-          prayerId: item.id,
-          prayerFile: prayerFile,
-          title: item.title,
-          titleHebrew: item.titleHebrew,
-          selectedVersionId: selectedVersionId,
-          difficulty: item.difficulty,
-          localSongFolderId: localSongFolderId,
-        ),
-      ),
-    ).then((_) {
-      if (mounted) _loadPrayers();
-    });
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (context) => PrayerReaderScreen(
+              prayerId: item.id,
+              prayerFile: prayerFile,
+              title: item.title,
+              titleHebrew: item.titleHebrew,
+              selectedVersionId: selectedVersionId,
+              difficulty: item.difficulty,
+              localSongFolderId: localSongFolderId,
+            ),
+          ),
+        )
+        .then((_) {
+          if (mounted) _loadPrayers();
+        });
   }
-
 }
 
 class _DownloadDialog extends StatefulWidget {
@@ -522,10 +564,7 @@ class _DownloadDialogState extends State<_DownloadDialog> {
           if (_downloading) const CircularProgressIndicator(),
           if (_error != null) ...[
             const SizedBox(height: 16),
-            Text(
-              _error!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+            Text(_error!, style: Theme.of(context).textTheme.bodySmall),
           ],
         ],
       ),
@@ -560,6 +599,7 @@ class _VersionPickerDialog extends StatelessWidget {
 
   final String prayerTitle;
   final List<VersionOption> versions;
+
   /// True when each version has a folder with matching .json + .mp3 (index versions).
   final bool useFolderLayout;
   final String? lastPlayedVersionId;
@@ -574,7 +614,8 @@ class _VersionPickerDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ...versions.map((v) {
-              final hasAudio = useFolderLayout || (v.audio != null && v.audio!.isNotEmpty);
+              final hasAudio =
+                  useFolderLayout || (v.audio != null && v.audio!.isNotEmpty);
               final isLastPlayed = v.id == lastPlayedVersionId;
               return ListTile(
                 title: Row(
@@ -585,16 +626,24 @@ class _VersionPickerDialog extends StatelessWidget {
                         padding: const EdgeInsets.only(left: 8.0),
                         child: Text(
                           'Last played',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
                       ),
                   ],
                 ),
-                subtitle: hasAudio ? null : const Text('No audio', style: TextStyle(color: Colors.grey)),
+                subtitle: hasAudio
+                    ? null
+                    : const Text(
+                        'No audio',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                 enabled: hasAudio,
-                onTap: hasAudio ? () => Navigator.of(context).pop<String?>(v.id) : null,
+                onTap: hasAudio
+                    ? () => Navigator.of(context).pop<String?>(v.id)
+                    : null,
               );
             }),
           ],

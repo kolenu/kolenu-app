@@ -6,17 +6,17 @@ class EnvConfig {
   EnvConfig._();
 
   static String get keyName {
-    final v = String.fromEnvironment('KOLENU_KEY_NAME', defaultValue: '');
+    const v = String.fromEnvironment('KOLENU_KEY_NAME', defaultValue: '');
     return v.isNotEmpty ? v : EmbeddedKeys.keyName;
   }
 
   static String get downloadKey {
-    final v = String.fromEnvironment('KOLENU_DOWNLOAD_KEY', defaultValue: '');
+    const v = String.fromEnvironment('KOLENU_DOWNLOAD_KEY', defaultValue: '');
     return v.isNotEmpty ? v : EmbeddedKeys.downloadKey;
   }
 
   static String get audioKey {
-    final v = String.fromEnvironment('KOLENU_AUDIO_KEY', defaultValue: '');
+    const v = String.fromEnvironment('KOLENU_AUDIO_KEY', defaultValue: '');
     return v.isNotEmpty ? v : EmbeddedKeys.audioKey;
   }
 }

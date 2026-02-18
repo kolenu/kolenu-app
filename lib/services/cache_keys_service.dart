@@ -47,7 +47,8 @@ class CacheKeysService {
   }
 
   /// Load cached keys. Returns null if not found or invalid.
-  static Future<({String keyName, String downloadKey, String audioKey})?> loadCacheKeys() async {
+  static Future<({String keyName, String downloadKey, String audioKey})?>
+  loadCacheKeys() async {
     try {
       final path = await _getCacheKeysPath();
       final file = File(path);
@@ -60,7 +61,9 @@ class CacheKeysService {
       final downloadKey = json['downloadKey'] as String?;
       final audioKey = json['audioKey'] as String?;
 
-      if (keyName == null || downloadKey == null || audioKey == null) return null;
+      if (keyName == null || downloadKey == null || audioKey == null) {
+        return null;
+      }
       return (keyName: keyName, downloadKey: downloadKey, audioKey: audioKey);
     } catch (e, st) {
       debugPrint('CacheKeysService loadCacheKeys error: $e\n$st');

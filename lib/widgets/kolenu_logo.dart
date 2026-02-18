@@ -14,8 +14,10 @@ class KolenuLogo extends StatelessWidget {
   });
 
   final double size;
+
   /// If set, logo uses this width (e.g. for a longer app bar logo).
   final double? width;
+
   /// If set, logo uses this height.
   final double? height;
   final KolenuThemeVariant? variant;
@@ -34,18 +36,12 @@ class KolenuLogo extends StatelessWidget {
       width: _w,
       height: _h,
       fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) => _FallbackLogo(
-        size: _h,
-        color: theme.colorScheme.primary,
-      ),
+      errorBuilder: (context, error, stackTrace) =>
+          _FallbackLogo(size: _h, color: theme.colorScheme.primary),
     );
 
     return ClipRect(
-      child: SizedBox(
-        width: _w,
-        height: _h,
-        child: image,
-      ),
+      child: SizedBox(width: _w, height: _h, child: image),
     );
   }
 }
@@ -59,10 +55,6 @@ class _FallbackLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Icon(
-      Icons.menu_book_rounded,
-      size: size,
-      color: color,
-    );
+    return Icon(Icons.menu_book_rounded, size: size, color: color);
   }
 }

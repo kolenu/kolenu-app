@@ -19,6 +19,7 @@ class PracticeDialog extends StatefulWidget {
   });
 
   final String? sentenceText;
+
   /// Optional difficulty level (L1–L4) for difficulty-based hints.
   final String? difficulty;
   final int? sentenceIndex;
@@ -40,7 +41,7 @@ class _PracticeDialogState extends State<PracticeDialog> {
 
   @override
   void dispose() {
-    _playSub?.cancel();
+    unawaited(_playSub?.cancel());
     _recorder.dispose();
     _playbackPlayer.dispose();
     super.dispose();
@@ -49,7 +50,9 @@ class _PracticeDialogState extends State<PracticeDialog> {
   Future<void> _checkPermission() async {
     if (await _recorder.hasPermission()) return;
     if (mounted) {
-      setState(() => _permissionError = 'Microphone permission is needed to practice.');
+      setState(
+        () => _permissionError = 'Microphone permission is needed to practice.',
+      );
     }
   }
 
@@ -57,7 +60,8 @@ class _PracticeDialogState extends State<PracticeDialog> {
     await _checkPermission();
     if (_permissionError != null) return;
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/kolenu_practice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final path =
+        '${dir.path}/kolenu_practice_${DateTime.now().millisecondsSinceEpoch}.m4a';
     try {
       await _recorder.start(const RecordConfig(), path: path);
       if (mounted) {
@@ -91,7 +95,7 @@ class _PracticeDialogState extends State<PracticeDialog> {
     setState(() => _playing = true);
     try {
       await _playbackPlayer.setFilePath(_recordedPath!);
-      _playSub?.cancel();
+      unawaited(_playSub?.cancel());
       _playSub = _playbackPlayer.playerStateStream.listen((state) {
         if (state.processingState == ProcessingState.completed) {
           if (mounted) setState(() => _playing = false);
@@ -149,10 +153,7 @@ class _PracticeDialogState extends State<PracticeDialog> {
             const SizedBox(height: 12),
           ],
           if (widget.sentenceText != null) ...[
-            Text(
-              difficultyHint,
-              style: theme.textTheme.bodySmall,
-            ),
+            Text(difficultyHint, style: theme.textTheme.bodySmall),
             const SizedBox(height: 8),
             Text(
               widget.sentenceText!,

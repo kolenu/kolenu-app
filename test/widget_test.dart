@@ -1,6 +1,9 @@
 // Widget tests for Kolenu app.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kolenu/main.dart';
 import 'package:kolenu/screens/prayer_list_screen.dart';
@@ -9,9 +12,51 @@ import 'package:kolenu/theme/kolenu_theme.dart';
 import 'package:kolenu/theme/theme_variant_scope.dart';
 
 void main() {
-  testWidgets('App shows prayer list screen with title Kolenu',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(const KolenuApp(initialThemeVariant: KolenuThemeVariant.meadow));
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    const wordsAssetPath = 'assets/audio/shema/ben_mitz_1_v2/words.json';
+    final wordsJson = jsonEncode({
+      'id': 'shema',
+      'title': 'Shema',
+      'titleHebrew': 'שְׁמַע יִשְׂרָאֵל',
+      'text': 'שְׁמַע יִשְׂרָאֵל',
+      'sentences': ['שְׁמַע יִשְׂרָאֵל'],
+      'words': [
+        {'word': 'שְׁמַע', 'start': 0.0, 'end': 0.6, 'translation': 'Hear'},
+        {
+          'word': 'יִשְׂרָאֵל',
+          'start': 0.6,
+          'end': 1.4,
+          'translation': 'Israel',
+        },
+      ],
+      'audio': null,
+      'versions': null,
+    });
+    final encoded = utf8.encode(wordsJson);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler('flutter/assets', (message) async {
+          final key = utf8.decode(message!.buffer.asUint8List());
+          if (key == wordsAssetPath) {
+            return ByteData.view(Uint8List.fromList(encoded).buffer);
+          }
+          return null;
+        });
+  });
+
+  tearDownAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler('flutter/assets', null);
+  });
+
+  testWidgets('App shows prayer list screen with title Kolenu', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const KolenuApp(initialThemeVariant: KolenuThemeVariant.meadow),
+    );
     await tester.pump();
     for (var i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -20,8 +65,9 @@ void main() {
     expect(find.text('Kolenu'), findsOneWidget);
   });
 
-  testWidgets('Prayer list screen shows Kolenu and loading or list or error',
-      (WidgetTester tester) async {
+  testWidgets('Prayer list screen shows Kolenu and loading or list or error', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ThemeVariantScope(
@@ -42,14 +88,18 @@ void main() {
     expect(find.text('Kolenu'), findsOneWidget);
     final hasList = find.text('Shema').evaluate().isNotEmpty;
     final hasError = find.text('Could not load prayers').evaluate().isNotEmpty;
-    final hasLoading = find.byType(CircularProgressIndicator).evaluate().isNotEmpty;
+    final hasLoading = find
+        .byType(CircularProgressIndicator)
+        .evaluate()
+        .isNotEmpty;
     expect(hasList || hasError || hasLoading, isTrue);
   });
 
-  testWidgets('Prayer reader loads and shows title',
-      (WidgetTester tester) async {
+  testWidgets('Prayer reader loads and shows title', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: PrayerReaderScreen(
           prayerId: 'shema',
           prayerFile: 'shema/ben_mitz_1_v2/words.json',

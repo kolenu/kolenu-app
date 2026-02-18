@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 /// Kolenu app theme: warm, gentle palettes with a cute lamb mascot feel.
 /// Three variants (Meadow, Sunset, Forest), each with its own logo and colors.
 /// For teens and adults (ages 13–40).
-enum KolenuThemeVariant {
-  meadow,
-  sunset,
-  forest,
-}
+enum KolenuThemeVariant { meadow, sunset, forest }
 
 extension KolenuThemeVariantExtension on KolenuThemeVariant {
   String get displayName {
@@ -215,10 +211,7 @@ class KolenuTheme {
               color: scheme.onSecondaryContainer,
             );
           }
-          return TextStyle(
-            fontSize: 12,
-            color: scheme.onSurfaceVariant,
-          );
+          return TextStyle(fontSize: 12, color: scheme.onSurfaceVariant);
         }),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -256,15 +249,11 @@ class KolenuTheme {
       cardTheme: CardThemeData(
         color: scheme.surfaceContainerHighest,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       ),
     );

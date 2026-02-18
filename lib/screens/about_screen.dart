@@ -43,9 +43,9 @@ class AboutScreen extends StatelessWidget {
               children: [
                 Text(
                   'Kolenu™ Usage Disclaimer',
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -53,9 +53,9 @@ class AboutScreen extends StatelessWidget {
                   'Users should not rely solely on Kolenu for religious decisions or guidance. Always consult a qualified rabbi, cantor, or teacher for personal or communal matters.\n\n'
                   'Kolenu is not a substitute for professional advice in health, safety, or legal matters. Use responsibly.\n\n'
                   'By using Kolenu, you acknowledge that the app and its content are provided "as is", and the developers assume no liability for any actions or decisions resulting from its use.',
-                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                    height: 1.6,
-                  ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.6),
                 ),
                 const SizedBox(height: 24),
                 Align(
@@ -109,9 +109,7 @@ class AboutScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 32),
-              Center(
-                child: KolenuLogo(size: 200),
-              ),
+              const Center(child: KolenuLogo(size: 200)),
               const SizedBox(height: 24),
               Text(
                 'Our Voice, Our Prayers',
@@ -159,7 +157,10 @@ class AboutScreen extends StatelessWidget {
               FilledButton.tonal(
                 onPressed: () => _showUsageDisclaimerDialog(context),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
                 ),
                 child: const Text('View Full Usage Disclaimer'),
               ),
@@ -191,12 +192,18 @@ class AboutScreen extends StatelessWidget {
               FilledButton.tonal(
                 onPressed: _reportIPViolation,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.flag_outlined, color: colorScheme.onSecondaryContainer),
+                    Icon(
+                      Icons.flag_outlined,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'Report IP Violation',
@@ -224,12 +231,18 @@ class AboutScreen extends StatelessWidget {
                 child: FilledButton.tonal(
                   onPressed: _sendFeedback,
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 24,
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.feedback_outlined, color: colorScheme.onSecondaryContainer),
+                      Icon(
+                        Icons.feedback_outlined,
+                        color: colorScheme.onSecondaryContainer,
+                      ),
                       const SizedBox(width: 12),
                       Text(
                         'Send Feedback',
@@ -255,7 +268,10 @@ class AboutScreen extends StatelessWidget {
               FilledButton(
                 onPressed: () => _openLegalDocuments(context),
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
                 ),
                 child: const Text('View All Legal Documents'),
               ),

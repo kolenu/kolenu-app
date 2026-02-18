@@ -96,7 +96,9 @@ class SongDownloadService {
     final wordsFile = File('${songDir.path}/$_wordsJson');
     final textFile = File('${songDir.path}/$_textJson');
 
-    if (!await audioFile.exists() || !await wordsFile.exists() || !await textFile.exists()) {
+    if (!await audioFile.exists() ||
+        !await wordsFile.exists() ||
+        !await textFile.exists()) {
       return false;
     }
 
@@ -122,9 +124,9 @@ class SongDownloadService {
     if (folder.isEmpty) throw Exception('Invalid song folder id');
 
     final baseUrl = CdnConfig.cdnBaseUrl!;
-    final audioUrl = '${baseUrl}$folder/$_audioEnc';
-    final wordsUrl = '${baseUrl}$folder/$_wordsJson';
-    final textUrl = '${baseUrl}$folder/$_textJson';
+    final audioUrl = '$baseUrl$folder/$_audioEnc';
+    final wordsUrl = '$baseUrl$folder/$_wordsJson';
+    final textUrl = '$baseUrl$folder/$_textJson';
 
     final downloadsDir = await _getDownloadsDir();
     final downloadDir = Directory('${downloadsDir.path}/$folder');
@@ -142,7 +144,9 @@ class SongDownloadService {
       final wordsFile = File('${downloadDir.path}/$_wordsJson');
       final textFile = File('${downloadDir.path}/$_textJson');
 
-      if (!await audioFile.exists() || !await wordsFile.exists() || !await textFile.exists()) {
+      if (!await audioFile.exists() ||
+          !await wordsFile.exists() ||
+          !await textFile.exists()) {
         throw Exception('Download incomplete: missing required files');
       }
 
@@ -160,17 +164,17 @@ class SongDownloadService {
     }
   }
 
-  static Map<String, String> get _authHeaders =>
-      {'X-App-Service-Key': EnvConfig.downloadKey};
+  static Map<String, String> get _authHeaders => {
+    'X-App-Service-Key': EnvConfig.downloadKey,
+  };
 
   static Future<void> _downloadFile(String url, String destPath) async {
-    final response = await http.get(
-      Uri.parse(url),
-      headers: _authHeaders,
-    ).timeout(
-      const Duration(seconds: 60),
-      onTimeout: () => throw Exception('Download timeout'),
-    );
+    final response = await http
+        .get(Uri.parse(url), headers: _authHeaders)
+        .timeout(
+          const Duration(seconds: 60),
+          onTimeout: () => throw Exception('Download timeout'),
+        );
 
     if (response.statusCode != 200) {
       throw Exception('Download failed: ${response.statusCode} for $url');
@@ -180,7 +184,10 @@ class SongDownloadService {
     await file.writeAsBytes(response.bodyBytes);
   }
 
-  static Future<void> _atomicInstall(Directory downloadDir, String folder) async {
+  static Future<void> _atomicInstall(
+    Directory downloadDir,
+    String folder,
+  ) async {
     final songsDir = await _getSongsDir();
     final destDir = Directory('${songsDir.path}/$folder');
     final safeTempName = '.tmp_${folder.replaceAll('/', '_')}';
@@ -203,7 +210,9 @@ class SongDownloadService {
       final wordsFile = File('${tempDir.path}/$_wordsJson');
       final textFile = File('${tempDir.path}/$_textJson');
 
-      if (!await audioFile.exists() || !await wordsFile.exists() || !await textFile.exists()) {
+      if (!await audioFile.exists() ||
+          !await wordsFile.exists() ||
+          !await textFile.exists()) {
         throw Exception('Validation failed: missing required files');
       }
 

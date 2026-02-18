@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'about_screen.dart';
 import 'hebrew_basics_screen.dart';
 import 'prayer_list_screen.dart';
-import '../services/cache_keys_service.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -18,21 +17,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkCacheClearedMessage());
-  }
-
-  Future<void> _checkCacheClearedMessage() async {
-    final show = await CacheKeysService.consumeCacheClearedMessage();
-    if (show && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cache cleared. Keys changed. Please reload content.',
-          ),
-          duration: Duration(seconds: 5),
-        ),
-      );
-    }
   }
 
   static const List<NavigationDestination> _destinations = [

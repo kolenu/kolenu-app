@@ -39,12 +39,16 @@ class PrayerListItem {
   final String id;
   final String title;
   final String titleHebrew;
+
   /// Content filename; always "words.json" in prayer-first layout.
   String get file => 'words.json';
+
   /// Optional: category key for grouping (e.g. "synagogue", "home_life", "camp_youth").
   final String? category;
+
   /// Optional: recording IDs (audio versions) for this prayer. When set, only these are offered.
   final List<String>? recordings;
+
   /// Optional: difficulty level (L1–L4) for difficulty-based practice hints.
   final String? difficulty;
 
@@ -66,14 +70,11 @@ class PrayerListItem {
 
 /// One audio version for a prayer. If a prayer has multiple, user can choose.
 class VersionOption {
-  const VersionOption({
-    required this.id,
-    required this.name,
-    this.audio,
-  });
+  const VersionOption({required this.id, required this.name, this.audio});
 
   final String id;
   final String name;
+
   /// Asset filename (e.g. audio.mp3). If null, no audio for this version.
   final String? audio;
 
@@ -144,38 +145,55 @@ class PrayerContent {
   final String? description;
   final String text;
   final List<String> sentences;
+
   /// 0-based index of last word of each sentence. E.g. [5, 11, 18] = sentence 0 ends at word 5.
   final List<int>? sentenceEndWordIndices;
   final List<WordSegment> words;
+
   /// Single audio file (legacy). Ignored if [versions] is non-null.
   final String? audio;
+
   /// Multiple versions; user picks one.
   final List<VersionOption>? versions;
+
   /// Seconds to add to playback position before matching to word timestamps (fixes sync).
   final double audioOffsetSeconds;
+
   /// Performer/reciter name (from doc JSON).
   final String? performerName;
+
   /// Audio license (e.g. CC-BY). From doc JSON.
   final String? audioLicense;
+
   /// Text license. From doc JSON.
   final String? textLicense;
+
   /// Sponsor/attribution line. From doc JSON.
   final String? attribution;
 
   /// Resolves which audio file to use. [selectedVersionId] if non-null and has audio;
   /// otherwise first version in [priorityOrder] that has audio; otherwise first version with audio.
-  String? resolveAudioFile(String? selectedVersionId, List<String> priorityOrder) {
+  String? resolveAudioFile(
+    String? selectedVersionId,
+    List<String> priorityOrder,
+  ) {
     if (versions != null && versions!.isNotEmpty) {
       // 1. Try selected version if specified
       if (selectedVersionId != null) {
         for (final v in versions!) {
-          if (v.id == selectedVersionId && v.audio != null && v.audio!.isNotEmpty) return v.audio;
+          if (v.id == selectedVersionId &&
+              v.audio != null &&
+              v.audio!.isNotEmpty) {
+            return v.audio;
+          }
         }
       }
       // 2. Try priority order
       for (final id in priorityOrder) {
         for (final v in versions!) {
-          if (v.id == id && v.audio != null && v.audio!.isNotEmpty) return v.audio;
+          if (v.id == id && v.audio != null && v.audio!.isNotEmpty) {
+            return v.audio;
+          }
         }
       }
       // 3. Fallback: any version with audio
@@ -194,8 +212,11 @@ class PrayerContent {
         sentenceIndex < sentenceEndWordIndices!.length) {
       return sentenceEndWordIndices![sentenceIndex];
     }
-    if (sentenceIndex >= 0 && sentenceIndex < sentences.length && words.isNotEmpty) {
-      final end = ((sentenceIndex + 1) * words.length / sentences.length).ceil() - 1;
+    if (sentenceIndex >= 0 &&
+        sentenceIndex < sentences.length &&
+        words.isNotEmpty) {
+      final end =
+          ((sentenceIndex + 1) * words.length / sentences.length).ceil() - 1;
       return end.clamp(0, words.length - 1);
     }
     return -1;
@@ -210,7 +231,8 @@ class PrayerContent {
       titleHebrew: json['titleHebrew'] as String,
       description: json['description'] as String?,
       text: json['text'] as String,
-      sentences: (json['sentences'] as List<dynamic>?)
+      sentences:
+          (json['sentences'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
@@ -242,8 +264,9 @@ class PrayerContent {
         .toList();
     final text = words.map((w) => w.word).join(' ');
     final sentences = text.isNotEmpty ? [text] : <String>[];
-    final sentenceEndWordIndices =
-        words.isEmpty ? <int>[] : <int>[words.length - 1];
+    final sentenceEndWordIndices = words.isEmpty
+        ? <int>[]
+        : <int>[words.length - 1];
     return PrayerContent(
       id: id,
       title: title,
@@ -254,9 +277,7 @@ class PrayerContent {
       sentenceEndWordIndices: sentenceEndWordIndices,
       words: words,
       audio: 'audio.mp3',
-      versions: [
-        VersionOption(id: id, name: title, audio: 'audio.mp3'),
-      ],
+      versions: [VersionOption(id: id, name: title, audio: 'audio.mp3')],
       audioOffsetSeconds: 0,
       performerName: null,
       audioLicense: null,

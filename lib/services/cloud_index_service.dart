@@ -39,8 +39,9 @@ class CloudIndexService {
 
   /// Fetch index.json from CDN and cache locally.
   /// Returns [PrayerIndex] or null if fetch fails or cloud is disabled.
-  static Map<String, String> get _authHeaders =>
-      {'X-App-Service-Key': EnvConfig.downloadKey};
+  static Map<String, String> get _authHeaders => {
+    'X-App-Service-Key': EnvConfig.downloadKey,
+  };
 
   static Future<PrayerIndex?> fetchIndex() async {
     lastFetchStatus = null;
@@ -48,13 +49,12 @@ class CloudIndexService {
 
     final url = CdnConfig.indexUrl!;
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: _authHeaders,
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('Fetch timeout'),
-      );
+      final response = await http
+          .get(Uri.parse(url), headers: _authHeaders)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('Fetch timeout'),
+          );
 
       if (response.statusCode != 200) {
         lastFetchStatus = response.statusCode;
@@ -87,7 +87,9 @@ class CloudIndexService {
   /// Fetch index.json from CDN. Throws on failure (server not found, timeout, etc).
   static Future<PrayerIndex> fetchIndexOrThrow() async {
     if (!CdnConfig.isCloudEnabled) {
-      throw Exception('CDN not configured. Set cdnBaseUrl in lib/config/cdn_config.dart');
+      throw Exception(
+        'CDN not configured. Set cdnBaseUrl in lib/config/cdn_config.dart',
+      );
     }
 
     if (EnvConfig.keyName.isEmpty || EnvConfig.downloadKey.isEmpty) {
@@ -101,13 +103,13 @@ class CloudIndexService {
 
     final url = CdnConfig.indexUrl!;
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: _authHeaders,
-      ).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw Exception('Could not find server. Request timed out.'),
-      );
+      final response = await http
+          .get(Uri.parse(url), headers: _authHeaders)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () =>
+                throw Exception('Could not find server. Request timed out.'),
+          );
 
       if (response.statusCode == 404) {
         throw Exception('Could not find server. Index not found (404).');
@@ -119,7 +121,9 @@ class CloudIndexService {
         );
       }
       if (response.statusCode != 200) {
-        throw Exception('Could not find server. Server returned ${response.statusCode}.');
+        throw Exception(
+          'Could not find server. Server returned ${response.statusCode}.',
+        );
       }
 
       final json = jsonDecode(response.body);
@@ -209,19 +213,23 @@ class CloudIndexService {
       final title = s['title'] as String? ?? songId;
       final titleHebrew = s['titleHebrew'] as String? ?? '';
 
-      prayerItems.add(PrayerListItem(
-        id: folderPath,
-        title: title,
-        titleHebrew: titleHebrew,
-        category: category,
-        recordings: null,
-        difficulty: s['difficulty'] as String?,
-      ));
-      versionOptions.add(VersionOption(
-        id: folderPath,
-        name: s['name'] as String? ?? songId,
-        audio: 'audio.enc',
-      ));
+      prayerItems.add(
+        PrayerListItem(
+          id: folderPath,
+          title: title,
+          titleHebrew: titleHebrew,
+          category: category,
+          recordings: null,
+          difficulty: s['difficulty'] as String?,
+        ),
+      );
+      versionOptions.add(
+        VersionOption(
+          id: folderPath,
+          name: s['name'] as String? ?? songId,
+          audio: 'audio.enc',
+        ),
+      );
     }
 
     return PrayerIndex(prayers: prayerItems, versions: versionOptions);

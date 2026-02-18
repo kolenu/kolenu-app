@@ -15,7 +15,8 @@ class ThemeVariantScope extends InheritedWidget {
   final ValueChanged<KolenuThemeVariant> onVariantChanged;
 
   static ThemeVariantScope of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<ThemeVariantScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<ThemeVariantScope>();
     assert(scope != null, 'No ThemeVariantScope found in context');
     return scope!;
   }

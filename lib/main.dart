@@ -21,10 +21,7 @@ void main() async {
 }
 
 class KolenuApp extends StatefulWidget {
-  const KolenuApp({
-    super.key,
-    required this.initialThemeVariant,
-  });
+  const KolenuApp({super.key, required this.initialThemeVariant});
 
   final KolenuThemeVariant initialThemeVariant;
 

@@ -42,7 +42,11 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.school_rounded, color: theme.colorScheme.primary, size: 26),
+            Icon(
+              Icons.school_rounded,
+              color: theme.colorScheme.primary,
+              size: 26,
+            ),
             const SizedBox(width: 10),
             const Text('Hebrew Basics'),
           ],
@@ -57,12 +61,18 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.4,
+                  ),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.tips_and_updates_outlined, color: theme.colorScheme.primary, size: 28),
+                    Icon(
+                      Icons.tips_and_updates_outlined,
+                      color: theme.colorScheme.primary,
+                      size: 28,
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
@@ -133,7 +143,8 @@ class _LettersGrid extends StatelessWidget {
       builder: (context, constraints) {
         const crossCount = 4;
         const spacing = 8.0;
-        final width = (constraints.maxWidth - spacing * (crossCount - 1)) / crossCount;
+        final width =
+            (constraints.maxWidth - spacing * (crossCount - 1)) / crossCount;
         final cellSize = width.clamp(72.0, 96.0);
         return Wrap(
           spacing: spacing,
@@ -143,8 +154,8 @@ class _LettersGrid extends StatelessWidget {
             final soundLabel = letter.sound.isEmpty
                 ? 'silent'
                 : (hasDagesh && letter.soundWithoutDagesh != null
-                    ? '${letter.sound} / ${letter.soundWithoutDagesh}'
-                    : letter.sound);
+                      ? '${letter.sound} / ${letter.soundWithoutDagesh}'
+                      : letter.sound);
             return SizedBox(
               width: cellSize,
               height: cellSize,
@@ -182,9 +193,10 @@ class _LettersGrid extends StatelessWidget {
                           Text(
                             letter.sound.isEmpty
                                 ? '—'
-                                : (hasDagesh && letter.soundWithoutDagesh != null
-                                    ? '${letter.sound} / ${letter.soundWithoutDagesh}'
-                                    : letter.sound),
+                                : (hasDagesh &&
+                                          letter.soundWithoutDagesh != null
+                                      ? '${letter.sound} / ${letter.soundWithoutDagesh}'
+                                      : letter.sound),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -226,7 +238,10 @@ class _VowelsList extends StatelessWidget {
                 onTap: () => onTap(vowel),
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       SizedBox(

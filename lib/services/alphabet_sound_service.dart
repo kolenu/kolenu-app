@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -29,9 +31,11 @@ class AlphabetSoundService {
     final key = _letterAssetKey(letter);
     final ok = await _playAsset('$_alphabetPath/$key.enc');
     if (ok) return;
-    await _speakHebrew(letter.hasDagesh && letter.charWithDagesh != null
-        ? '${letter.charWithDagesh} ${letter.char}'
-        : letter.char);
+    await _speakHebrew(
+      letter.hasDagesh && letter.charWithDagesh != null
+          ? '${letter.charWithDagesh} ${letter.char}'
+          : letter.char,
+    );
   }
 
   /// Play vowel: try encrypted .enc asset first, else Hebrew TTS (speak the vowel with bet).
@@ -51,22 +55,31 @@ class AlphabetSoundService {
     try {
       // Decrypt .enc file and get temporary file
       final decryptedFile = await AudioDecryptionService.decryptAudioFile(path);
-      
+
       // Load decrypted audio from file
       await _player.setFilePath(decryptedFile.path);
       await _player.seek(Duration.zero);
       await _player.play();
-      
+
       // Clean up temporary file after playback completes
-      _player.playerStateStream.firstWhere(
-        (state) => state.processingState == ProcessingState.completed,
-      ).then((_) {
-        AudioDecryptionService.deleteTemporaryFile(decryptedFile);
-      }).catchError((_) {
-        // Playback was interrupted; still clean up
-        AudioDecryptionService.deleteTemporaryFile(decryptedFile);
-      });
-      
+      unawaited(
+        _player.playerStateStream
+            .firstWhere(
+              (state) => state.processingState == ProcessingState.completed,
+            )
+            .then((_) {
+              unawaited(
+                AudioDecryptionService.deleteTemporaryFile(decryptedFile),
+              );
+            })
+            .catchError((_) {
+              // Playback was interrupted; still clean up
+              unawaited(
+                AudioDecryptionService.deleteTemporaryFile(decryptedFile),
+              );
+            }),
+      );
+
       return true;
     } catch (_) {
       return false;

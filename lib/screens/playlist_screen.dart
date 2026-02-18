@@ -32,14 +32,13 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
     if (CdnConfig.isCloudEnabled) {
       index = await CloudIndexService.fetchOrLoadCached();
     }
-    if (index == null) {
-      index = PrayerIndex(prayers: [], versions: null);
-    }
+    index ??= const PrayerIndex(prayers: [], versions: null);
     final playlist = await DefaultPlaylistService.getPlaylist();
     final shuffle = await DefaultPlaylistService.getShuffle();
     if (!mounted) return;
     setState(() {
-      _allPrayers = (index ?? PrayerIndex(prayers: [], versions: null)).prayers;
+      _allPrayers =
+          (index ?? const PrayerIndex(prayers: [], versions: null)).prayers;
       _playlist = playlist;
       _shuffle = shuffle;
       _loading = false;
@@ -82,16 +81,14 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     final inPlaylist = _playlist.toSet();
-    final notInPlaylist = _allPrayers.where((p) => !inPlaylist.contains(p.id)).toList();
+    final notInPlaylist = _allPrayers
+        .where((p) => !inPlaylist.contains(p.id))
+        .toList();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Default playlist'),
-      ),
+      appBar: AppBar(title: const Text('Default playlist')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -108,7 +105,11 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.playlist_add, size: 48, color: Theme.of(context).colorScheme.outline),
+                        Icon(
+                          Icons.playlist_add,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Playlist is empty',
@@ -123,7 +124,10 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                     ),
                   )
                 : ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: _playlist.length,
                     onReorder: _reorder,
                     itemBuilder: (context, index) {
@@ -152,7 +156,10 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
           const Divider(height: 1),
           const Padding(
             padding: EdgeInsets.all(8),
-            child: Text('Add to playlist', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(
+              'Add to playlist',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
           SizedBox(
             height: 120,

@@ -1,9 +1,9 @@
 /// Playback speed for prayer audio.
 /// Order represents pedagogical progression: Practice → Synagogue → Fluent
 enum PlaybackSpeed {
-  slow,    // Practice speed - for first-time learners
-  normal,  // Synagogue speed - real-world pace
-  fast,    // Fluent speed - confident mastery
+  slow, // Practice speed - for first-time learners
+  normal, // Synagogue speed - real-world pace
+  fast, // Fluent speed - confident mastery
 }
 
 extension PlaybackSpeedExtension on PlaybackSpeed {

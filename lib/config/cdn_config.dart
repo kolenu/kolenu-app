@@ -3,8 +3,9 @@
 /// Set [cdnBaseUrl] to your CDN base URL (e.g. https://cdn.example.com/kolenu/).
 /// Must end with a slash. When null or empty, cloud fetch is disabled and
 /// assets are used instead.
+library;
+
 import 'package:kolenu/config/env_config.dart';
-import 'package:kolenu/config/system_config.dart';
 
 class CdnConfig {
   CdnConfig._();
@@ -24,7 +25,5 @@ class CdnConfig {
 
   /// URL for a song folder file. [folderPath] is e.g. 'shem/david_dd_1_v2'.
   static String? urlForSongFile(String folderPath, String filename) =>
-      isCloudEnabled
-          ? '${cdnBaseUrl!}$folderPath/$filename'
-          : null;
+      isCloudEnabled ? '${cdnBaseUrl!}$folderPath/$filename' : null;
 }

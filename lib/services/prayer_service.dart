@@ -10,11 +10,9 @@ const String _prayersAssetPath = 'assets/audio';
 
 /// Result of loading the prayer index (list + optional versions from folder names).
 class PrayerIndex {
-  const PrayerIndex({
-    required this.prayers,
-    this.versions,
-  });
+  const PrayerIndex({required this.prayers, this.versions});
   final List<PrayerListItem> prayers;
+
   /// When set, each version has a folder with matching .json + .mp3 per prayer.
   final List<VersionOption>? versions;
 }
@@ -38,7 +36,8 @@ class PrayerService {
     final prayers = list
         .map((e) => PrayerListItem.fromJson(e as Map<String, dynamic>))
         .toList();
-    final versionsList = (json['versions'] ?? json['performers']) as List<dynamic>?;
+    final versionsList =
+        (json['versions'] ?? json['performers']) as List<dynamic>?;
     final versions = versionsList
         ?.map((e) => VersionOption.fromJson(e as Map<String, dynamic>))
         .toList();

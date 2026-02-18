@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -70,18 +69,14 @@ class AudioDecryptionService {
     }
     final keyBytes = Uint8List.fromList([
       for (var i = 0; i < keyHex.length; i += 2)
-        int.parse(keyHex.substring(i, i + 2), radix: 16)
+        int.parse(keyHex.substring(i, i + 2), radix: 16),
     ]);
 
     try {
       final key = encrypt.Key(keyBytes);
       final ivBytes = encrypt.IV(iv);
       final encrypter = encrypt.Encrypter(
-        encrypt.AES(
-          key,
-          mode: encrypt.AESMode.cbc,
-          padding: 'PKCS7',
-        ),
+        encrypt.AES(key, mode: encrypt.AESMode.cbc, padding: 'PKCS7'),
       );
       final decrypted = encrypter.decryptBytes(
         encrypt.Encrypted(ciphertext),

@@ -34,14 +34,16 @@ class SettingsScreen extends StatelessWidget {
       await CloudIndexService.clearCache();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cleared $count song(s). Re-download to play.')),
+          SnackBar(
+            content: Text('Cleared $count song(s). Re-download to play.'),
+          ),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -52,10 +54,7 @@ class SettingsScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Settings'), centerTitle: true),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(24),
@@ -78,9 +77,14 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             FilledButton.tonal(
-              onPressed: CdnConfig.isCloudEnabled ? () => _clearDownloads(context) : null,
+              onPressed: CdnConfig.isCloudEnabled
+                  ? () => _clearDownloads(context)
+                  : null,
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 24,
+                ),
               ),
               child: const Text('Clear downloaded songs'),
             ),

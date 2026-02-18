@@ -30,16 +30,16 @@ class LegalDocumentsScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   content,
-                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                    height: 1.6,
-                  ),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.6),
                 ),
                 const SizedBox(height: 24),
                 Align(
@@ -63,10 +63,7 @@ class LegalDocumentsScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Legal Documents'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Legal Documents'), centerTitle: true),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -106,7 +103,8 @@ class LegalDocumentsScreen extends StatelessWidget {
                 context,
                 icon: Icons.copyright_outlined,
                 title: 'Copyright & IP Protection',
-                description: 'Information about copyright ownership and reporting violations',
+                description:
+                    'Information about copyright ownership and reporting violations',
                 onTap: () => _showDialog(
                   context,
                   LegalText.copyrightIpTitle,
@@ -118,12 +116,18 @@ class LegalDocumentsScreen extends StatelessWidget {
               FilledButton.tonal(
                 onPressed: _sendIPViolationReport,
                 style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 24,
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.flag_outlined, color: colorScheme.onSecondaryContainer),
+                    Icon(
+                      Icons.flag_outlined,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'Report IP Violation',

@@ -29,10 +29,13 @@ class PrayerReaderScreen extends StatefulWidget {
   final String prayerFile;
   final String title;
   final String titleHebrew;
+
   /// If set, use this version's audio when prayer has multiple versions.
   final String? selectedVersionId;
+
   /// Optional difficulty level (L1–L4) for practice hints.
   final String? difficulty;
+
   /// When set, load content and audio from local Songs/ folder (cloud download).
   final String? localSongFolderId;
 
@@ -57,6 +60,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   int? _tappedWordIndex;
   PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
   bool _loopOne = false;
+
   /// Sentences practiced in this session (by index).
   final Set<int> _practicedSentencesInSession = {};
 
@@ -81,7 +85,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     if (c.words.isEmpty) return 0;
     if (c.sentences.isEmpty) return 0;
     if (page <= 0) return 0;
-    final firstSentence = (page * _sentencesPerPage).clamp(0, c.sentences.length - 1);
+    final firstSentence = (page * _sentencesPerPage).clamp(
+      0,
+      c.sentences.length - 1,
+    );
     if (firstSentence == 0) return 0;
     final endPrev = c.sentenceEndWordIndex(firstSentence - 1);
     return endPrev < 0 ? 0 : endPrev + 1;
@@ -90,7 +97,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   int _endWordIndexForPage(PrayerContent c, int page) {
     if (c.words.isEmpty) return 0;
     if (c.sentences.isEmpty) return c.words.length - 1;
-    final lastSentence = ((page + 1) * _sentencesPerPage - 1).clamp(0, c.sentences.length - 1);
+    final lastSentence = ((page + 1) * _sentencesPerPage - 1).clamp(
+      0,
+      c.sentences.length - 1,
+    );
     final end = c.sentenceEndWordIndex(lastSentence);
     return end < 0 ? c.words.length - 1 : end;
   }
@@ -180,11 +190,11 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       });
       if (audioFile != null) {
         if (widget.localSongFolderId != null) {
-          _initAudioFromLocal(widget.localSongFolderId!);
+          await _initAudioFromLocal(widget.localSongFolderId!);
         } else {
           final base = _prayerAssetBase;
           final path = base.isEmpty ? audioFile : '$base/$audioFile';
-          _initAudio(path);
+          await _initAudio(path);
         }
       }
     } catch (e, st) {
@@ -204,7 +214,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       if (!await encryptedFile.exists()) {
         throw Exception('audio.enc not found');
       }
-      final decryptedFile = await AudioDecryptionService.decryptFromFile(encryptedFile);
+      final decryptedFile = await AudioDecryptionService.decryptFromFile(
+        encryptedFile,
+      );
       _currentAudioFile = decryptedFile;
       await _player.setFilePath(decryptedFile.path);
       await _setupPlayerAndSync();
@@ -218,10 +230,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
 
   Future<void> _initAudio(String audioFile) async {
     try {
-      final encryptedFile = audioFile.endsWith('.enc') ? audioFile : audioFile.replaceAll('.mp3', '.enc');
+      final encryptedFile = audioFile.endsWith('.enc')
+          ? audioFile
+          : audioFile.replaceAll('.mp3', '.enc');
       final assetPath = '$_prayersAssetPath/$encryptedFile';
 
-      final decryptedFile = await AudioDecryptionService.decryptAudioFile(assetPath);
+      final decryptedFile = await AudioDecryptionService.decryptAudioFile(
+        assetPath,
+      );
       _currentAudioFile = decryptedFile;
       await _player.setFilePath(decryptedFile.path);
       await _setupPlayerAndSync();
@@ -256,7 +272,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       }
       final secForSync = sec;
       final newIndex = _wordIndexAtPosition(secForSync);
-      if (_currentWordIndex == (content?.words.length ?? 0) - 1 && newIndex < _currentWordIndex) {
+      if (_currentWordIndex == (content?.words.length ?? 0) - 1 &&
+          newIndex < _currentWordIndex) {
         return;
       }
       setState(() {
@@ -265,7 +282,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       if (_sentenceMode && content != null) {
         _checkSentencePause(secForSync);
       }
-      if (content != null && content.sentences.isNotEmpty && _currentWordIndex >= 0) {
+      if (content != null &&
+          content.sentences.isNotEmpty &&
+          _currentWordIndex >= 0) {
         final sentence = _sentenceIndexForWord(content, _currentWordIndex);
         final pageForSentence = sentence ~/ _sentencesPerPage;
         if (pageForSentence != _currentPage && _sentencePausedAt == null) {
@@ -282,20 +301,20 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   int _wordIndexAtPosition(double sec) {
     final words = _content?.words ?? [];
     if (words.isEmpty) return -1;
-    
+
     // Find the word that contains this time
     for (var i = 0; i < words.length; i++) {
       if (sec >= words[i].start && sec < words[i].end) return i;
     }
-    
+
     // If past last word, stay on last word and don't jump back
     if (sec >= words.last.end) {
       return words.length - 1;
     }
-    
+
     // If before first word
     if (sec < words.first.start) return -1;
-    
+
     // In a gap between words: find the closest word
     // Use the word that ended most recently (keep highlighting last word until next starts)
     for (var i = 0; i < words.length - 1; i++) {
@@ -303,7 +322,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         return i; // Stay on previous word during gap
       }
     }
-    
+
     return -1;
   }
 
@@ -366,7 +385,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       _currentPage = newPage;
       _sentencePausedAt = null;
     });
-    if (content.audio != null && _audioError == null && content.words.isNotEmpty) {
+    if (content.audio != null &&
+        _audioError == null &&
+        content.words.isNotEmpty) {
       final startWordIdx = _startWordIndexForPage(content, newPage);
       if (startWordIdx < content.words.length) {
         final startSec = content.words[startWordIdx].start;
@@ -413,7 +434,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     int totalSentences = 0;
     final content = _content;
     if (content != null && content.sentences.isNotEmpty) {
-      sentenceIndex = (_currentPage * _sentencesPerPage).clamp(0, content.sentences.length - 1);
+      sentenceIndex = (_currentPage * _sentencesPerPage).clamp(
+        0,
+        content.sentences.length - 1,
+      );
       sentenceText = content.sentences[sentenceIndex];
       totalSentences = content.sentences.length;
     }
@@ -470,14 +494,23 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
               }
             },
             itemBuilder: (context) {
-              final canSentence = _content != null && _content!.sentences.isNotEmpty;
-              final canLoop = _content != null && _content!.audio != null && _audioError == null;
-              final canTranslations = _content != null && _content!.words.isNotEmpty;
+              final canSentence =
+                  _content != null && _content!.sentences.isNotEmpty;
+              final canLoop =
+                  _content != null &&
+                  _content!.audio != null &&
+                  _audioError == null;
+              final canTranslations =
+                  _content != null && _content!.words.isNotEmpty;
               return [
                 if (canSentence)
                   PopupMenuItem(
                     value: 'sentence_mode',
-                    child: Text(_sentenceMode ? 'Sentence mode: On' : 'Sentence mode: Off'),
+                    child: Text(
+                      _sentenceMode
+                          ? 'Sentence mode: On'
+                          : 'Sentence mode: Off',
+                    ),
                   ),
                 if (canLoop)
                   PopupMenuItem(
@@ -487,7 +520,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 if (canTranslations)
                   PopupMenuItem(
                     value: 'translations',
-                    child: Text(_showTips ? 'Translations: On' : 'Translations: Off'),
+                    child: Text(
+                      _showTips ? 'Translations: On' : 'Translations: Off',
+                    ),
                   ),
                 const PopupMenuItem(
                   value: 'practice',
@@ -536,7 +571,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   button: true,
                   child: IconButton.filled(
                     icon: const Icon(Icons.chevron_right_rounded),
-                    onPressed: canPrev ? () => _goToPage(_currentPage - 1) : null,
+                    onPressed: canPrev
+                        ? () => _goToPage(_currentPage - 1)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -545,8 +582,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                     label: playing && pausedAt == null ? 'Pause' : 'Play',
                     button: true,
                     child: FilledButton.icon(
-                      icon: Icon(playing && pausedAt == null ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                      label: Text(playing && pausedAt == null ? 'Pause' : 'Play'),
+                      icon: Icon(
+                        playing && pausedAt == null
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                      label: Text(
+                        playing && pausedAt == null ? 'Pause' : 'Play',
+                      ),
                       onPressed: pausedAt != null
                           ? null
                           : () async {
@@ -565,7 +608,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                     initialValue: _playbackSpeed,
                     onSelected: _setPlaybackSpeed,
                     icon: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.secondaryContainer,
                         borderRadius: BorderRadius.circular(12),
@@ -576,15 +622,22 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                           Icon(
                             Icons.speed_rounded,
                             size: 18,
-                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSecondaryContainer,
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _playbackSpeed.displayName.split(' ')[0], // "Practice", "Synagogue", or "Fluent"
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSecondaryContainer,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            _playbackSpeed.displayName.split(
+                              ' ',
+                            )[0], // "Practice", "Synagogue", or "Fluent"
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                         ],
                       ),
@@ -600,7 +653,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  selected ? Icons.check_circle : Icons.circle_outlined,
+                                  selected
+                                      ? Icons.check_circle
+                                      : Icons.circle_outlined,
                                   size: 20,
                                   color: selected
                                       ? Theme.of(context).colorScheme.primary
@@ -609,19 +664,27 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         speed.displayName,
                                         style: TextStyle(
-                                          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                                          fontWeight: selected
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
                                         ),
                                       ),
                                       Text(
                                         speed.description,
-                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -639,7 +702,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   button: true,
                   child: IconButton.filled(
                     icon: const Icon(Icons.chevron_left_rounded),
-                    onPressed: canNext ? () => _goToPage(_currentPage + 1) : null,
+                    onPressed: canNext
+                        ? () => _goToPage(_currentPage + 1)
+                        : null,
                   ),
                 ),
               ],
@@ -681,7 +746,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   }
 
   bool _hasVersionMetadata(PrayerContent content) {
-    return (content.performerName != null && content.performerName!.isNotEmpty) ||
+    return (content.performerName != null &&
+            content.performerName!.isNotEmpty) ||
         (content.audioLicense != null && content.audioLicense!.isNotEmpty) ||
         (content.textLicense != null && content.textLicense!.isNotEmpty) ||
         (content.attribution != null && content.attribution!.isNotEmpty);
@@ -727,11 +793,15 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         final viewportHeight = constraints.maxHeight;
         final viewportWidth = constraints.maxWidth;
         final hasMeta = _hasVersionMetadata(content);
-        final topSectionHeight = 120.0 +
+        final topSectionHeight =
+            120.0 +
             (_audioError != null ? 80.0 : 0) +
-            (content.description != null && content.description!.isNotEmpty ? 40.0 : 0) +
+            (content.description != null && content.description!.isNotEmpty
+                ? 40.0
+                : 0) +
             (hasMeta ? 32.0 : 0);
-        final minTextHeight = (viewportHeight - padding * 2 - topSectionHeight).clamp(200.0, double.infinity);
+        final minTextHeight = (viewportHeight - padding * 2 - topSectionHeight)
+            .clamp(200.0, double.infinity);
         return SingleChildScrollView(
           padding: const EdgeInsets.all(padding),
           child: Column(
@@ -741,18 +811,30 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 Material(
                   color: Theme.of(context).colorScheme.errorContainer,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onErrorContainer),
+                            Icon(
+                              Icons.info_outline,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _audioError!,
-                                style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onErrorContainer,
+                                ),
                               ),
                             ),
                           ],
@@ -767,7 +849,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
-              if (content.description != null && content.description!.isNotEmpty) ...[
+              if (content.description != null &&
+                  content.description!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   content.description!,
@@ -796,7 +879,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                     fit: BoxFit.contain,
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: viewportWidth - padding * 2),
+                      constraints: BoxConstraints(
+                        maxWidth: viewportWidth - padding * 2,
+                      ),
                       child: _buildWordByWord(content),
                     ),
                   ),
@@ -815,9 +900,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       return Text(
         content.text,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              height: 1.8,
-              fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
-            ),
+          height: 1.8,
+          fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
+        ),
         textAlign: TextAlign.center,
       );
     }
@@ -845,7 +930,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           // Seek to word start and play if audio available
           if (_content != null && w.start >= 0) {
             final offset = _content!.audioOffsetSeconds;
-            final seekPos = Duration(milliseconds: ((w.start + offset) * 1000).round());
+            final seekPos = Duration(
+              milliseconds: ((w.start + offset) * 1000).round(),
+            );
             await _player.seek(seekPos);
             if (!_player.playing) {
               await _player.play();
@@ -867,17 +954,20 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 color: isCurrent
                     ? Theme.of(context).colorScheme.primaryContainer
                     : (isTapped
-                        ? Theme.of(context).colorScheme.surfaceContainerHighest
-                        : null),
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest
+                          : null),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 w.word,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
-                      height: 1.4,
-                      fontWeight: isCurrent ? FontWeight.w600 : null,
-                    ),
+                  fontSize:
+                      22, // Scaled by MediaQuery.textScaler for accessibility
+                  height: 1.4,
+                  fontWeight: isCurrent ? FontWeight.w600 : null,
+                ),
               ),
             ),
             if (_showTips && w.translation != null && w.translation!.isNotEmpty)
@@ -886,19 +976,21 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 child: Text(
                   w.translation!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   textDirection: TextDirection.ltr,
                 ),
               )
-            else if (isTapped && w.translation != null && w.translation!.isNotEmpty)
+            else if (isTapped &&
+                w.translation != null &&
+                w.translation!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   w.translation!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   textDirection: TextDirection.ltr,
                 ),
               ),
