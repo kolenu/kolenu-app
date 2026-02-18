@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'config/env_config.dart';
 
 import 'screens/main_shell_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'services/cache_keys_service.dart';
 import 'services/song_download_service.dart';
+import 'services/terms_agreement_service.dart';
 import 'services/theme_preference_service.dart';
 import 'theme/kolenu_theme.dart';
 import 'theme/theme_variant_scope.dart';
@@ -17,13 +19,23 @@ void main() async {
   await CacheKeysService.checkKeysAndClearIfChanged();
   await SongDownloadService.cleanupDownloadsOnStart();
   final initialVariant = await ThemePreferenceService.getVariant();
-  runApp(KolenuApp(initialThemeVariant: initialVariant));
+  final hasAgreedTerms = await TermsAgreementService.hasAgreed();
+  TermsAgreementService.agreedNotifier.value = hasAgreedTerms;
+  runApp(KolenuApp(
+    initialThemeVariant: initialVariant,
+    hasAgreedTerms: hasAgreedTerms,
+  ));
 }
 
 class KolenuApp extends StatefulWidget {
-  const KolenuApp({super.key, required this.initialThemeVariant});
+  const KolenuApp({
+    super.key,
+    required this.initialThemeVariant,
+    required this.hasAgreedTerms,
+  });
 
   final KolenuThemeVariant initialThemeVariant;
+  final bool hasAgreedTerms; // Initial value; live updates via agreedNotifier
 
   @override
   State<KolenuApp> createState() => _KolenuAppState();
@@ -43,17 +55,28 @@ class _KolenuAppState extends State<KolenuApp> {
     ThemePreferenceService.setVariant(variant);
   }
 
+  void _onTermsAgreed() {
+    TermsAgreementService.setAgreed();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ThemeVariantScope(
       variant: _variant,
       onVariantChanged: _onVariantChanged,
-      child: MaterialApp(
-        title: 'Kolenu',
-        theme: KolenuTheme.light(_variant),
-        darkTheme: KolenuTheme.dark(_variant),
-        themeMode: ThemeMode.system,
-        home: const MainShellScreen(),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: TermsAgreementService.agreedNotifier,
+        builder: (context, hasAgreedTerms, _) {
+          return MaterialApp(
+            title: 'Kolenu',
+            theme: KolenuTheme.light(_variant),
+            darkTheme: KolenuTheme.dark(_variant),
+            themeMode: ThemeMode.system,
+            home: hasAgreedTerms
+                ? const MainShellScreen()
+                : WelcomeScreen(onContinue: _onTermsAgreed),
+          );
+        },
       ),
     );
   }

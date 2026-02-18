@@ -3,18 +3,18 @@ import 'package:flutter/material.dart';
 import '../config/cdn_config.dart';
 import '../services/cloud_index_service.dart';
 import '../services/song_download_service.dart';
+import '../services/terms_agreement_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  Future<void> _clearDownloads(BuildContext context) async {
-    if (!CdnConfig.isCloudEnabled) return;
+  Future<void> _clearStorageAndReset(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear downloaded songs?'),
+        title: const Text('Clear storage and reset?'),
         content: const Text(
-          'Remove all downloaded songs. Use when switching CDN versions (e.g. dummy ↔ prod1) to fix decryption errors. You can re-download after.',
+          'Remove all downloaded songs and reset the welcome screen. Use when switching CDN versions or to test the first-launch flow. You can re-download songs after.',
         ),
         actions: [
           TextButton(
@@ -23,27 +23,35 @@ class SettingsScreen extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Clear'),
+            child: const Text('Clear and reset'),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
     try {
-      final count = await SongDownloadService.clearAllSongs();
-      await CloudIndexService.clearCache();
+      int count = 0;
+      if (CdnConfig.isCloudEnabled) {
+        count = await SongDownloadService.clearAllSongs();
+        await CloudIndexService.clearCache();
+      }
+      await TermsAgreementService.clearAgreed();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Cleared $count song(s). Re-download to play.'),
+            content: Text(
+              count > 0
+                  ? 'Cleared $count song(s). Welcome screen will appear.'
+                  : 'Reset complete. Welcome screen will appear.',
+            ),
           ),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     }
   }
@@ -69,7 +77,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Manage downloaded audio files stored on this device.',
+              'Clear downloaded songs and reset the welcome screen. Use when switching CDN versions or to test the first-launch flow.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
                 height: 1.5,
@@ -77,16 +85,14 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             FilledButton.tonal(
-              onPressed: CdnConfig.isCloudEnabled
-                  ? () => _clearDownloads(context)
-                  : null,
+              onPressed: () => _clearStorageAndReset(context),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                   vertical: 16,
                   horizontal: 24,
                 ),
               ),
-              child: const Text('Clear downloaded songs'),
+              child: const Text('Clear storage and reset'),
             ),
           ],
         ),
