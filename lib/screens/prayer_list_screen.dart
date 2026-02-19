@@ -6,7 +6,7 @@ import '../services/cache_keys_service.dart';
 import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/last_played_service.dart';
-import '../services/prayer_service.dart';
+import '../services/prayer_service.dart' show PrayerIndex, PrayerService;
 import '../services/progress_service.dart';
 import '../services/song_download_service.dart'
     show SongDownloadService, isSubscribed;
@@ -59,7 +59,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       );
       return;
     }
-    await _openReader(item);
+    if (!context.mounted) return;
+    // ignore: use_build_context_synchronously - guarded by mounted check above
+    await _openReader(item, context);
   }
 
   Future<void> _loadPrayers() async {
@@ -350,53 +352,57 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           ),
         ),
         ...prayers.map((item) {
-          return Semantics(
-            label: '${item.title}, ${item.titleHebrew}. Double tap to open.',
-            button: true,
-            child: ListTile(
-              leading: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(
-                    alpha: 0.6,
+          return Builder(
+            builder: (tileContext) {
+              return Semantics(
+                label: '${item.title}, ${item.titleHebrew}. Double tap to open.',
+                button: true,
+                child: ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer.withValues(
+                        alpha: 0.6,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.menu_book_rounded,
+                      color: theme.colorScheme.onPrimaryContainer,
+                      size: 24,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.menu_book_rounded,
-                  color: theme.colorScheme.onPrimaryContainer,
-                  size: 24,
-                ),
-              ),
-              title: Text(
-                item.title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  item.titleHebrew,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  title: Text(
+                    item.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      item.titleHebrew,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right_rounded,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
+                  onTap: () => _openReader(item, tileContext),
                 ),
-              ),
-              trailing: Icon(
-                Icons.chevron_right_rounded,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              onTap: () => _openReader(item),
-            ),
+              );
+            },
           );
         }),
       ];
     }).toList();
   }
 
-  Future<void> _openReader(PrayerListItem item) async {
+  Future<void> _openReader(PrayerListItem item, BuildContext tileContext) async {
     String? songFolderId;
     String prayerFile = '${item.id}/${item.file}';
 
@@ -418,14 +424,12 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         );
         return;
       }
-      final selected = await showDialog<String?>(
-        context: context,
-        builder: (context) => _VersionPickerDialog(
-          prayerTitle: item.title,
-          versions: list,
-          useFolderLayout: true,
-          lastPlayedVersionId: lastPlayed,
-        ),
+      if (!tileContext.mounted) return;
+      final selected = await _showVersionDropdown(
+        context: tileContext,
+        item: item,
+        versions: list,
+        lastPlayedVersionId: lastPlayed,
       );
       if (!mounted) return;
       if (selected == null) {
@@ -485,6 +489,95 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       return true;
     }
     return false;
+  }
+
+  Future<String?> _showVersionDropdown({
+    required BuildContext context,
+    required PrayerListItem item,
+    required List<VersionOption> versions,
+    String? lastPlayedVersionId,
+  }) async {
+    final metadataMap = <String, String?>{};
+    await Future.wait(
+      versions.map((v) async {
+        final meta = await PrayerService.loadVersionMetadata(
+          v.id,
+          id: item.id,
+          title: item.title,
+          titleHebrew: item.titleHebrew,
+        );
+        metadataMap[v.id] = meta;
+      }),
+    );
+    if (!context.mounted) return null;
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final position = renderBox != null
+        ? renderBox.localToGlobal(Offset.zero) & renderBox.size
+        : const Rect.fromLTWH(0, 0, 1, 1);
+
+    return showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.left,
+        position.bottom,
+        position.right,
+        position.bottom + 8,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      items: versions.map((v) {
+        // Folder layout: each version is a folder with audio.enc.
+        final isLastPlayed = v.id == lastPlayedVersionId;
+        final meta = metadataMap[v.id];
+        return PopupMenuItem<String>(
+          value: v.id,
+          enabled: true,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        v.displayLabel,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (isLastPlayed)
+                      Text(
+                        'Last played',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                  ],
+                ),
+                if (meta != null && meta.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    meta,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 
   void _openReaderWithVersion(
@@ -589,72 +682,3 @@ class _DownloadDialogState extends State<_DownloadDialog> {
   }
 }
 
-class _VersionPickerDialog extends StatelessWidget {
-  const _VersionPickerDialog({
-    required this.prayerTitle,
-    required this.versions,
-    this.useFolderLayout = false,
-    this.lastPlayedVersionId,
-  });
-
-  final String prayerTitle;
-  final List<VersionOption> versions;
-
-  /// True when each version has a folder with matching .json + .mp3 (index versions).
-  final bool useFolderLayout;
-  final String? lastPlayedVersionId;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('$prayerTitle — Choose version'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ...versions.map((v) {
-              final hasAudio =
-                  useFolderLayout || (v.audio != null && v.audio!.isNotEmpty);
-              final isLastPlayed = v.id == lastPlayedVersionId;
-              return ListTile(
-                title: Row(
-                  children: [
-                    Expanded(child: Text(v.displayLabel)),
-                    if (isLastPlayed)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Text(
-                          'Last played',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                        ),
-                      ),
-                  ],
-                ),
-                subtitle: hasAudio
-                    ? null
-                    : const Text(
-                        'No audio',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                enabled: hasAudio,
-                onTap: hasAudio
-                    ? () => Navigator.of(context).pop<String?>(v.id)
-                    : null,
-              );
-            }),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop<String?>(null),
-          child: const Text('Cancel'),
-        ),
-      ],
-    );
-  }
-}

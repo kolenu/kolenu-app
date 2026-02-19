@@ -14,8 +14,6 @@ import 'theme/theme_variant_scope.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('EnvConfig: keyName=${EnvConfig.keyName}');
-  debugPrint('EnvConfig: downloadKeySet=${EnvConfig.downloadKey.isNotEmpty}');
-  debugPrint('EnvConfig: audioKeySet=${EnvConfig.audioKey.isNotEmpty}');
   await CacheKeysService.checkKeysAndClearIfChanged();
   await SongDownloadService.cleanupDownloadsOnStart();
   final initialVariant = await ThemePreferenceService.getVariant();

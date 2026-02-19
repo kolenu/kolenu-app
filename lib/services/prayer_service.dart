@@ -121,4 +121,46 @@ class PrayerService {
     }
     throw FormatException('words.json must be array or object', basePath);
   }
+
+  /// Load metadata line for a version (performer, license, attribution).
+  /// Returns null if not downloaded or content has no metadata.
+  static Future<String?> loadVersionMetadata(
+    String songFolderId, {
+    required String id,
+    required String title,
+    String titleHebrew = '',
+  }) async {
+    try {
+      final downloaded = await SongDownloadService.isSongDownloaded(
+        songFolderId,
+      );
+      if (!downloaded) return null;
+      final content = await loadPrayerContentFromLocal(
+        songFolderId,
+        id: id,
+        title: title,
+        titleHebrew: titleHebrew,
+      );
+      final parts = <String>[];
+      if (content.performerName != null &&
+          content.performerName!.isNotEmpty) {
+        parts.add(content.performerName!);
+      }
+      if (content.audioLicense != null &&
+          content.audioLicense!.isNotEmpty) {
+        parts.add('Audio: ${content.audioLicense!}');
+      }
+      if (content.textLicense != null &&
+          content.textLicense!.isNotEmpty) {
+        parts.add('Text: ${content.textLicense!}');
+      }
+      if (content.attribution != null &&
+          content.attribution!.isNotEmpty) {
+        parts.add(content.attribution!);
+      }
+      return parts.isEmpty ? null : parts.join(' · ');
+    } catch (_) {
+      return null;
+    }
+  }
 }

@@ -298,28 +298,39 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     if (mounted) setState(() {});
   }
 
+  /// Small lead (seconds) so highlight appears slightly before word is heard.
+  /// Compensates for perception and display latency.
+  static const double _syncLeadSeconds = 0.06;
+
   int _wordIndexAtPosition(double sec) {
     final words = _content?.words ?? [];
     if (words.isEmpty) return -1;
 
+    // Apply sync lead so highlight appears slightly before word
+    final secForLookup = sec + _syncLeadSeconds;
+
     // Find the word that contains this time
     for (var i = 0; i < words.length; i++) {
-      if (sec >= words[i].start && sec < words[i].end) return i;
+      if (secForLookup >= words[i].start && secForLookup < words[i].end) {
+        return i;
+      }
     }
 
     // If past last word, stay on last word and don't jump back
-    if (sec >= words.last.end) {
+    if (secForLookup >= words.last.end) {
       return words.length - 1;
     }
 
     // If before first word
-    if (sec < words.first.start) return -1;
+    if (secForLookup < words.first.start) return -1;
 
-    // In a gap between words: find the closest word
-    // Use the word that ended most recently (keep highlighting last word until next starts)
+    // In a gap between words: switch to next word at midpoint of gap
     for (var i = 0; i < words.length - 1; i++) {
-      if (sec >= words[i].end && sec < words[i + 1].start) {
-        return i; // Stay on previous word during gap
+      final gapStart = words[i].end;
+      final gapEnd = words[i + 1].start;
+      if (secForLookup >= gapStart && secForLookup < gapEnd) {
+        final gapMid = (gapStart + gapEnd) / 2;
+        return secForLookup >= gapMid ? i + 1 : i;
       }
     }
 
@@ -484,11 +495,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 setState(() => _loopOne = v);
                 await LoopPreferenceService.setLoopOne(v);
                 await _player.setLoopMode(v ? LoopMode.one : LoopMode.off);
-              } else if (value == 'translations') {
-                setState(() {
-                  _showTips = !_showTips;
-                  if (!_showTips) _tappedWordIndex = null;
-                });
               } else if (value == 'practice') {
                 _openPracticeDialog(context);
               }
@@ -500,8 +506,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   _content != null &&
                   _content!.audio != null &&
                   _audioError == null;
-              final canTranslations =
-                  _content != null && _content!.words.isNotEmpty;
               return [
                 if (canSentence)
                   PopupMenuItem(
@@ -516,13 +520,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   PopupMenuItem(
                     value: 'loop',
                     child: Text(_loopOne ? 'Loop: On' : 'Loop: Off'),
-                  ),
-                if (canTranslations)
-                  PopupMenuItem(
-                    value: 'translations',
-                    child: Text(
-                      _showTips ? 'Translations: On' : 'Translations: Off',
-                    ),
                   ),
                 const PopupMenuItem(
                   value: 'practice',
@@ -792,9 +789,11 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       builder: (context, constraints) {
         final viewportHeight = constraints.maxHeight;
         final viewportWidth = constraints.maxWidth;
+        final canTranslations = content.words.isNotEmpty;
         final hasMeta = _hasVersionMetadata(content);
         final topSectionHeight =
             120.0 +
+            (canTranslations ? 52.0 : 0) +
             (_audioError != null ? 80.0 : 0) +
             (content.description != null && content.description!.isNotEmpty
                 ? 40.0
@@ -807,6 +806,23 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (canTranslations)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FilterChip(
+                      selected: _showTips,
+                      label: Text(_showTips ? 'Translation On' : 'Translation Off'),
+                      onSelected: (selected) {
+                        setState(() {
+                          _showTips = selected;
+                          if (!_showTips) _tappedWordIndex = null;
+                        });
+                      },
+                    ),
+                  ),
+                ),
               if (_audioError != null)
                 Material(
                   color: Theme.of(context).colorScheme.errorContainer,
