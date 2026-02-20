@@ -144,14 +144,4 @@ app.*.symbols
 /build/
 
 # Custom files
-# Ignore all mp3s in the prayers directory
-assets/audio/**/*.enc
-assets/audio/**/*.json
-assets/audio/**/*.word
 
-# EXCEPT this specific file, it is a placeholder for stjanovitz_1_v1, and is needed for open source repository.
-!assets/audio/**/stjanovitz_1_v1/
-
-# Dummy metadata file for local use; not needed in GitHub repo and may contain sensitive info.
-metadata.csv
-rclone_sync.log

@@ -142,20 +142,16 @@ class PrayerService {
         titleHebrew: titleHebrew,
       );
       final parts = <String>[];
-      if (content.performerName != null &&
-          content.performerName!.isNotEmpty) {
+      if (content.performerName != null && content.performerName!.isNotEmpty) {
         parts.add(content.performerName!);
       }
-      if (content.audioLicense != null &&
-          content.audioLicense!.isNotEmpty) {
+      if (content.audioLicense != null && content.audioLicense!.isNotEmpty) {
         parts.add('Audio: ${content.audioLicense!}');
       }
-      if (content.textLicense != null &&
-          content.textLicense!.isNotEmpty) {
+      if (content.textLicense != null && content.textLicense!.isNotEmpty) {
         parts.add('Text: ${content.textLicense!}');
       }
-      if (content.attribution != null &&
-          content.attribution!.isNotEmpty) {
+      if (content.attribution != null && content.attribution!.isNotEmpty) {
         parts.add(content.attribution!);
       }
       return parts.isEmpty ? null : parts.join(' · ');

@@ -7,10 +7,7 @@ import '../widgets/kolenu_logo.dart';
 /// First-launch clickwrap-lite screen. One tap to continue.
 /// No scrolling, no forced reading. Courts accept this pattern.
 class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({
-    super.key,
-    required this.onContinue,
-  });
+  const WelcomeScreen({super.key, required this.onContinue});
 
   final VoidCallback onContinue;
 
@@ -30,11 +27,7 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
-  void _showLegalDialog(
-    BuildContext context,
-    String title,
-    String content,
-  ) {
+  void _showLegalDialog(BuildContext context, String title, String content) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -47,18 +40,16 @@ class WelcomeScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(ctx)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
                 Text(
                   content,
-                  style: Theme.of(ctx)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(height: 1.6),
+                  style: Theme.of(
+                    ctx,
+                  ).textTheme.bodyMedium?.copyWith(height: 1.6),
                 ),
                 const SizedBox(height: 24),
                 Align(
@@ -164,4 +155,3 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
-

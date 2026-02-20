@@ -186,7 +186,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       setState(() {
         _content = content;
         _loading = false;
-        if (audioFile == null) _audioError = 'Audio not available';
+        if (audioFile == null) _audioError = 'Could not find .mp3';
       });
       if (audioFile != null) {
         if (widget.localSongFolderId != null) {
@@ -223,7 +223,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     } catch (e, st) {
       debugPrint('Audio init error (local): $e\n$st');
       if (mounted) {
-        setState(() => _audioError = 'Audio not available');
+        setState(() => _audioError = 'Could not find .mp3');
       }
     }
   }
@@ -244,7 +244,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     } catch (e, st) {
       debugPrint('Audio init error: $e\n$st');
       if (mounted) {
-        setState(() => _audioError = 'Audio not available');
+        setState(() => _audioError = 'Could not find .mp3');
       }
     }
   }
@@ -813,7 +813,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                     alignment: Alignment.centerRight,
                     child: FilterChip(
                       selected: _showTips,
-                      label: Text(_showTips ? 'Translation On' : 'Translation Off'),
+                      label: Text(
+                        _showTips ? 'Translation On' : 'Translation Off',
+                      ),
                       onSelected: (selected) {
                         setState(() {
                           _showTips = selected;

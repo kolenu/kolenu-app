@@ -355,7 +355,8 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           return Builder(
             builder: (tileContext) {
               return Semantics(
-                label: '${item.title}, ${item.titleHebrew}. Double tap to open.',
+                label:
+                    '${item.title}, ${item.titleHebrew}. Double tap to open.',
                 button: true,
                 child: ListTile(
                   leading: Container(
@@ -402,7 +403,10 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     }).toList();
   }
 
-  Future<void> _openReader(PrayerListItem item, BuildContext tileContext) async {
+  Future<void> _openReader(
+    PrayerListItem item,
+    BuildContext tileContext,
+  ) async {
     String? songFolderId;
     String prayerFile = '${item.id}/${item.file}';
 
@@ -526,9 +530,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         position.right,
         position.bottom + 8,
       ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       items: versions.map((v) {
         // Folder layout: each version is a folder with audio.enc.
         final isLastPlayed = v.id == lastPlayedVersionId;
@@ -681,4 +683,3 @@ class _DownloadDialogState extends State<_DownloadDialog> {
     );
   }
 }
-

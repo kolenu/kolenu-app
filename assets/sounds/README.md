@@ -1,6 +1,6 @@
 # Alphabet and vowel sounds
 
-Optional MP3 files for the Hebrew Basics screen. If a file is present, it is played when the user taps that letter or vowel; otherwise the app uses Hebrew TTS.
+MP3 files for the Hebrew Basics screen. When present, they are played when the user taps that letter or vowel.
 
 ## Letters (`alphabet/`)
 

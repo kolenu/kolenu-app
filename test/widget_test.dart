@@ -55,7 +55,10 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const KolenuApp(initialThemeVariant: KolenuThemeVariant.meadow),
+      const KolenuApp(
+        initialThemeVariant: KolenuThemeVariant.meadow,
+        hasAgreedTerms: true,
+      ),
     );
     await tester.pump();
     for (var i = 0; i < 30; i++) {

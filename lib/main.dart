@@ -19,10 +19,12 @@ void main() async {
   final initialVariant = await ThemePreferenceService.getVariant();
   final hasAgreedTerms = await TermsAgreementService.hasAgreed();
   TermsAgreementService.agreedNotifier.value = hasAgreedTerms;
-  runApp(KolenuApp(
-    initialThemeVariant: initialVariant,
-    hasAgreedTerms: hasAgreedTerms,
-  ));
+  runApp(
+    KolenuApp(
+      initialThemeVariant: initialVariant,
+      hasAgreedTerms: hasAgreedTerms,
+    ),
+  );
 }
 
 class KolenuApp extends StatefulWidget {

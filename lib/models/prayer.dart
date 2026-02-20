@@ -252,7 +252,7 @@ class PrayerContent {
     );
   }
 
-  /// Build PrayerContent from a words-only JSON array (e.g. content/audio .../words.json).
+  /// Build PrayerContent from a words-only JSON array.
   static PrayerContent fromWordsList(
     List<dynamic> wordsList, {
     required String id,

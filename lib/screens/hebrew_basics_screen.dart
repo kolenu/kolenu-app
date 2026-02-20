@@ -7,7 +7,7 @@ import '../theme/theme_variant_scope.dart';
 /// Hebrew Basics for Prayer: alphabet and vowels (nikud) overview.
 /// See doc/design/hebrew_alphabet.md.
 /// Plays sounds from MP3 assets (assets/sounds/alphabet/, assets/sounds/vowels/) when present,
-/// otherwise uses Hebrew TTS.
+/// Plays from encrypted .enc assets when available.
 class HebrewBasicsScreen extends StatefulWidget {
   const HebrewBasicsScreen({super.key});
 
