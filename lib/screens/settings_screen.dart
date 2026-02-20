@@ -30,22 +30,13 @@ class SettingsScreen extends StatelessWidget {
     );
     if (confirmed != true || !context.mounted) return;
     try {
-      int count = 0;
       if (CdnConfig.isCloudEnabled) {
-        count = await SongDownloadService.clearAllSongs();
+        await SongDownloadService.clearAllSongs();
         await CloudIndexService.clearCache();
       }
       await TermsAgreementService.clearAgreed();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              count > 0
-                  ? 'Cleared $count song(s). Welcome screen will appear.'
-                  : 'Reset complete. Welcome screen will appear.',
-            ),
-          ),
-        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (context.mounted) {
