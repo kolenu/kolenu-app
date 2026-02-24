@@ -1,36 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../data/hebrew_alphabet.dart';
-import '../services/alphabet_sound_service.dart';
 import '../theme/theme_variant_scope.dart';
 
 /// Hebrew Basics for Prayer: alphabet and vowels (nikud) overview.
 /// See doc/design/hebrew_alphabet.md.
-/// Plays sounds from MP3 assets (assets/sounds/alphabet/, assets/sounds/vowels/) when present,
-/// Plays from encrypted .enc assets when available.
-class HebrewBasicsScreen extends StatefulWidget {
+/// Display only; no sound playback.
+class HebrewBasicsScreen extends StatelessWidget {
   const HebrewBasicsScreen({super.key});
-
-  @override
-  State<HebrewBasicsScreen> createState() => _HebrewBasicsScreenState();
-}
-
-class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
-  final AlphabetSoundService _soundService = AlphabetSoundService();
-
-  @override
-  void dispose() {
-    _soundService.dispose();
-    super.dispose();
-  }
-
-  Future<void> _speakLetter(HebrewLetter letter) async {
-    await _soundService.playLetter(letter);
-  }
-
-  Future<void> _speakVowel(HebrewVowel vowel) async {
-    await _soundService.playVowel(vowel);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,35 +35,6 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(
-                    alpha: 0.4,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.tips_and_updates_outlined,
-                      color: theme.colorScheme.primary,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        'Tap any letter or vowel to hear its name and sound.',
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
               Text(
                 'Letters',
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -103,7 +51,7 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _LettersGrid(onTap: _speakLetter),
+              const _LettersGrid(),
               const SizedBox(height: 28),
               Text(
                 'Vowels (Nikud)',
@@ -121,7 +69,7 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _VowelsList(onTap: _speakVowel),
+              const _VowelsList(),
               const SizedBox(height: 32),
             ],
           ),
@@ -132,9 +80,7 @@ class _HebrewBasicsScreenState extends State<HebrewBasicsScreen> {
 }
 
 class _LettersGrid extends StatelessWidget {
-  const _LettersGrid({required this.onTap});
-
-  final ValueChanged<HebrewLetter> onTap;
+  const _LettersGrid();
 
   @override
   Widget build(BuildContext context) {
@@ -161,49 +107,43 @@ class _LettersGrid extends StatelessWidget {
               height: cellSize,
               child: Semantics(
                 label: '${letter.name}, $soundLabel',
-                button: true,
                 child: Material(
                   color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: () => onTap(letter),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (hasDagesh)
-                            Text(
-                              '${letter.charWithDagesh} ${letter.char}',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                height: 1.2,
-                              ),
-                              textDirection: TextDirection.rtl,
-                            )
-                          else
-                            Text(
-                              letter.char,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                height: 1.2,
-                              ),
-                              textDirection: TextDirection.rtl,
-                            ),
-                          const SizedBox(height: 4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (hasDagesh)
                           Text(
-                            letter.sound.isEmpty
-                                ? '—'
-                                : (hasDagesh &&
-                                          letter.soundWithoutDagesh != null
-                                      ? '${letter.sound} / ${letter.soundWithoutDagesh}'
-                                      : letter.sound),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                            '${letter.charWithDagesh} ${letter.char}',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              height: 1.2,
                             ),
-                            textDirection: TextDirection.ltr,
+                            textDirection: TextDirection.rtl,
+                          )
+                        else
+                          Text(
+                            letter.char,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              height: 1.2,
+                            ),
+                            textDirection: TextDirection.rtl,
                           ),
-                        ],
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          letter.sound.isEmpty
+                              ? '—'
+                              : (hasDagesh && letter.soundWithoutDagesh != null
+                                    ? '${letter.sound} / ${letter.soundWithoutDagesh}'
+                                    : letter.sound),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          textDirection: TextDirection.ltr,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -217,72 +157,78 @@ class _LettersGrid extends StatelessWidget {
 }
 
 class _VowelsList extends StatelessWidget {
-  const _VowelsList({required this.onTap});
-
-  final ValueChanged<HebrewVowel> onTap;
+  const _VowelsList();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      children: hebrewVowels.map((vowel) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Semantics(
-            label: '${vowel.name}, ${vowel.soundDesc}',
-            button: true,
-            child: Material(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: () => onTap(vowel),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 56,
-                        child: Text(
-                          vowel.symbolWithBet,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            height: 1.2,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const crossCount = 2;
+        const spacing = 8.0;
+        final cellWidth =
+            (constraints.maxWidth - spacing * (crossCount - 1)) / crossCount;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: hebrewVowels.map((vowel) {
+            return SizedBox(
+              width: cellWidth,
+              child: Semantics(
+                label: '${vowel.name}, ${vowel.soundDesc}',
+                child: Material(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          child: Text(
+                            vowel.symbolWithBet,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              height: 1.2,
+                            ),
+                            textDirection: TextDirection.rtl,
                           ),
-                          textDirection: TextDirection.rtl,
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              vowel.name,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                vowel.name,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              vowel.soundDesc,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                              const SizedBox(height: 2),
+                              Text(
+                                vowel.soundDesc,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 }

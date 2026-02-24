@@ -10,6 +10,7 @@ import '../config/env_config.dart';
 import '../models/prayer.dart';
 import 'cache_keys_service.dart';
 import 'prayer_service.dart';
+import 'song_download_service.dart';
 
 /// Fetches and caches index.json from CDN.
 /// Supports both cloud format (songs) and legacy format (prayers + versions).
@@ -73,8 +74,17 @@ class CloudIndexService {
 
       final dir = await _getKolenuDir();
       final file = File('${dir.path}/$_indexFilename');
+      final previousBody = await file.exists()
+          ? await file.readAsString()
+          : null;
+      final indexChanged = previousBody != response.body;
       await file.writeAsString(response.body);
       await CacheKeysService.saveCacheKeys();
+
+      if (indexChanged) {
+        final validIds = _validRecordingIds(index);
+        await SongDownloadService.pruneOrphanedCache(validIds);
+      }
 
       return index;
     } catch (e, st) {
@@ -92,7 +102,7 @@ class CloudIndexService {
       );
     }
 
-    if (EnvConfig.keyName.isEmpty || EnvConfig.downloadKey.isEmpty) {
+    if (EnvConfig.release.isEmpty || EnvConfig.downloadKey.isEmpty) {
       throw Exception(
         'CDN keys not configured. Run with keys loaded:\n'
         '  source ../keys/set_keys.sh <version>\n'
@@ -138,8 +148,17 @@ class CloudIndexService {
 
       final dir = await _getKolenuDir();
       final file = File('${dir.path}/$_indexFilename');
+      final previousBody = await file.exists()
+          ? await file.readAsString()
+          : null;
+      final indexChanged = previousBody != response.body;
       await file.writeAsString(response.body);
       await CacheKeysService.saveCacheKeys();
+
+      if (indexChanged) {
+        final validIds = _validRecordingIds(index);
+        await SongDownloadService.pruneOrphanedCache(validIds);
+      }
 
       return index;
     } on http.ClientException catch (e) {
@@ -191,7 +210,8 @@ class CloudIndexService {
     }
 
     final prayers = json['prayers'] as List<dynamic>?;
-    final versions = json['versions'] ?? json['performers'];
+    final versions =
+        json['recordings'] ?? json['versions'] ?? json['performers'];
     if (prayers != null) {
       return _parseLegacyPrayers(prayers, versions);
     }
@@ -201,7 +221,7 @@ class CloudIndexService {
 
   static PrayerIndex _parseCloudSongs(List<dynamic> songs) {
     final prayerItems = <PrayerListItem>[];
-    final versionOptions = <VersionOption>[];
+    final recordingOptions = <RecordingOption>[];
 
     for (final s in songs) {
       if (s is! Map<String, dynamic>) continue;
@@ -223,8 +243,8 @@ class CloudIndexService {
           difficulty: s['difficulty'] as String?,
         ),
       );
-      versionOptions.add(
-        VersionOption(
+      recordingOptions.add(
+        RecordingOption(
           id: folderPath,
           name: s['name'] as String? ?? songId,
           audio: 'audio.enc',
@@ -232,7 +252,7 @@ class CloudIndexService {
       );
     }
 
-    return PrayerIndex(prayers: prayerItems, versions: versionOptions);
+    return PrayerIndex(prayers: prayerItems, recordings: recordingOptions);
   }
 
   static PrayerIndex _parseLegacyPrayers(
@@ -243,10 +263,25 @@ class CloudIndexService {
         .map((e) => PrayerListItem.fromJson(e as Map<String, dynamic>))
         .toList();
     final versionsList = versions as List<dynamic>?;
-    final versionOptions = versionsList
-        ?.map((e) => VersionOption.fromJson(e as Map<String, dynamic>))
+    final recordingOptions = versionsList
+        ?.map((e) => RecordingOption.fromJson(e as Map<String, dynamic>))
         .toList();
-    return PrayerIndex(prayers: prayerItems, versions: versionOptions);
+    return PrayerIndex(prayers: prayerItems, recordings: recordingOptions);
+  }
+
+  static Set<String> _validRecordingIds(PrayerIndex index) {
+    final ids = <String>{};
+    if (index.recordings != null) {
+      for (final r in index.recordings!) {
+        ids.add(r.id);
+      }
+    }
+    for (final p in index.prayers) {
+      if (p.recordings != null) {
+        ids.addAll(p.recordings!);
+      }
+    }
+    return ids;
   }
 
   /// Clear cached index (for testing).

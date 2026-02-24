@@ -4,12 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String _keyLastPlayed = 'last_played_performer';
 
-/// Stores which version was last played for each prayer.
-/// Used to open the same version next time and to show a "Last played" mark in the picker.
+/// Stores which recording was last played for each prayer.
+/// Used to open the same recording next time and to show a "Last played" mark in the picker.
 class LastPlayedService {
   LastPlayedService._();
 
-  static Future<String?> getLastPlayedVersion(String prayerId) async {
+  static Future<String?> getLastPlayedRecording(String prayerId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyLastPlayed);
     if (raw == null) return null;
@@ -21,9 +21,9 @@ class LastPlayedService {
     }
   }
 
-  static Future<void> setLastPlayedVersion(
+  static Future<void> setLastPlayedRecording(
     String prayerId,
-    String versionId,
+    String recordingId,
   ) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_keyLastPlayed);
@@ -36,7 +36,7 @@ class LastPlayedService {
         }
       } catch (_) {}
     }
-    map[prayerId] = versionId;
+    map[prayerId] = recordingId;
     await prefs.setString(_keyLastPlayed, jsonEncode(map));
   }
 }

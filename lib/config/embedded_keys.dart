@@ -3,7 +3,7 @@
 class EmbeddedKeys {
   EmbeddedKeys._();
 
-  static const String keyName = 'dummy';
+  static const String release = 'dummy';
   static const String audioKey =
       'c7b2b1254aa967f6ac5d2f37ebbdaf1e1f9c8b29212e756439c4f877bd5d4cfb';
   static const String downloadKey =

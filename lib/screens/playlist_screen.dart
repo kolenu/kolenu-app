@@ -32,13 +32,13 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
     if (CdnConfig.isCloudEnabled) {
       index = await CloudIndexService.fetchOrLoadCached();
     }
-    index ??= const PrayerIndex(prayers: [], versions: null);
+    index ??= const PrayerIndex(prayers: [], recordings: null);
     final playlist = await DefaultPlaylistService.getPlaylist();
     final shuffle = await DefaultPlaylistService.getShuffle();
     if (!mounted) return;
     setState(() {
       _allPrayers =
-          (index ?? const PrayerIndex(prayers: [], versions: null)).prayers;
+          (index ?? const PrayerIndex(prayers: [], recordings: null)).prayers;
       _playlist = playlist;
       _shuffle = shuffle;
       _loading = false;

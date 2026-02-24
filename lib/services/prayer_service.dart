@@ -8,13 +8,13 @@ import 'song_download_service.dart';
 
 const String _prayersAssetPath = 'assets/audio';
 
-/// Result of loading the prayer index (list + optional versions from folder names).
+/// Result of loading the prayer index (list + optional recordings from folder names).
 class PrayerIndex {
-  const PrayerIndex({required this.prayers, this.versions});
+  const PrayerIndex({required this.prayers, this.recordings});
   final List<PrayerListItem> prayers;
 
-  /// When set, each version has a folder with matching .json + .mp3 per prayer.
-  final List<VersionOption>? versions;
+  /// When set, each recording has a folder with matching .json + .mp3 per prayer.
+  final List<RecordingOption>? recordings;
 }
 
 /// Loads prayer list and content from assets.
@@ -37,11 +37,12 @@ class PrayerService {
         .map((e) => PrayerListItem.fromJson(e as Map<String, dynamic>))
         .toList();
     final versionsList =
-        (json['versions'] ?? json['performers']) as List<dynamic>?;
-    final versions = versionsList
-        ?.map((e) => VersionOption.fromJson(e as Map<String, dynamic>))
+        (json['recordings'] ?? json['versions'] ?? json['performers'])
+            as List<dynamic>?;
+    final recordings = versionsList
+        ?.map((e) => RecordingOption.fromJson(e as Map<String, dynamic>))
         .toList();
-    return PrayerIndex(prayers: prayers, versions: versions);
+    return PrayerIndex(prayers: prayers, recordings: recordings);
   }
 
   /// Load the list of prayers from index.json (convenience; use loadIndex() when you need versions).
@@ -76,14 +77,14 @@ class PrayerService {
     return PrayerContent.fromJson(decoded);
   }
 
-  /// Try to load content for a prayer from a version's folder.
-  /// Uses prayer-first layout: {prayerId}/{versionId}/{prayerFile}
-  static Future<PrayerContent?> loadPrayerContentForVersion(
+  /// Try to load content for a prayer from a recording's folder.
+  /// Uses prayer-first layout: {prayerId}/{recordingId}/{prayerFile}
+  static Future<PrayerContent?> loadPrayerContentForRecording(
     String prayerId,
-    String versionId,
+    String recordingId,
     String prayerFile,
   ) async {
-    final file = '$prayerId/$versionId/$prayerFile';
+    final file = '$prayerId/$recordingId/$prayerFile';
     try {
       return await loadPrayerContent(file);
     } catch (_) {
@@ -122,9 +123,9 @@ class PrayerService {
     throw FormatException('words.json must be array or object', basePath);
   }
 
-  /// Load metadata line for a version (performer, license, attribution).
+  /// Load metadata line for a recording (performer, license, attribution).
   /// Returns null if not downloaded or content has no metadata.
-  static Future<String?> loadVersionMetadata(
+  static Future<String?> loadRecordingMetadata(
     String songFolderId, {
     required String id,
     required String title,

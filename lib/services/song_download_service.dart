@@ -46,7 +46,75 @@ class SongDownloadService {
     return dir;
   }
 
-  /// Clear all downloaded songs from /Songs/. Use when switching CDN versions
+  /// Remove cached song folders that are no longer in the index.
+  /// [validRecordingIds] should be the set of all recording IDs from the current index.
+  static Future<int> pruneOrphanedCache(Set<String> validRecordingIds) async {
+    final songsDir = await _getSongsDir();
+    if (!await songsDir.exists()) return 0;
+    return _pruneOrphanedRecursive(songsDir, songsDir.path, validRecordingIds);
+  }
+
+  static Future<int> _pruneOrphanedRecursive(
+    Directory dir,
+    String songsRoot,
+    Set<String> validRecordingIds,
+  ) async {
+    var removed = 0;
+    for (final entity in dir.listSync()) {
+      if (entity is! Directory) continue;
+      final prefix = '$songsRoot${Platform.pathSeparator}';
+      final relPath = entity.path.startsWith(prefix)
+          ? entity.path.substring(prefix.length)
+          : entity.path;
+      final recordingId = relPath.replaceAll(RegExp(r'[/\\]+'), '/');
+      final hasRequired =
+          await File('${entity.path}/$_audioEnc').exists() &&
+          await File('${entity.path}/$_wordsJson').exists() &&
+          await File('${entity.path}/$_textJson').exists();
+      if (hasRequired) {
+        if (!validRecordingIds.contains(recordingId)) {
+          await entity.delete(recursive: true);
+          removed++;
+        }
+      } else {
+        removed += await _pruneOrphanedRecursive(
+          entity,
+          songsRoot,
+          validRecordingIds,
+        );
+      }
+    }
+    return removed;
+  }
+
+  /// Total size in bytes of all cached song files under /Songs/.
+  static Future<int> getCacheSizeBytes() async {
+    final songsDir = await _getSongsDir();
+    if (!await songsDir.exists()) return 0;
+    var total = 0;
+    await for (final entity in songsDir.list(
+      recursive: true,
+      followLinks: false,
+    )) {
+      if (entity is File) {
+        total += await entity.length();
+      }
+    }
+    return total;
+  }
+
+  /// Delete a single cached recording. [songFolderId] is e.g. 'common/shema/ben_mitz_1_v2'.
+  static Future<bool> deleteRecording(String songFolderId) async {
+    final folder = songFolderId.replaceAll(RegExp(r'^/+|/+$'), '');
+    if (folder.isEmpty) return false;
+    final songsDir = await _getSongsDir();
+    final dir = Directory('${songsDir.path}/$folder');
+    if (!await dir.exists()) return false;
+    await dir.delete(recursive: true);
+    return true;
+  }
+
+  /// Clear all downloaded songs from /Songs/. Use when switching CDN releases
   /// (e.g. dummy ↔ prod1) to avoid key mismatch.
   static Future<int> clearAllSongs() async {
     final dir = await _getSongsDir();

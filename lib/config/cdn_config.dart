@@ -13,7 +13,7 @@ class CdnConfig {
   /// CDN base URL. Set to your R2/Cloudflare CDN URL.
   /// Example: 'https://your-bucket.r2.cloudflarestorage.com/kolenu/'
   static String? get cdnBaseUrl =>
-      'https://kolenu-audio.digimint.ca/${EnvConfig.keyName}/';
+      'https://kolenu-audio.digimint.ca/${EnvConfig.release}/';
 
   /// Whether cloud mode is enabled (CDN URL configured).
   static bool get isCloudEnabled =>
@@ -22,6 +22,10 @@ class CdnConfig {
   /// Full URL for index.json.
   static String? get indexUrl =>
       isCloudEnabled ? '${cdnBaseUrl!}index.json' : null;
+
+  /// Full URL for broadcast messages (announcements). Same base as index.
+  static String? get broadcastUrl =>
+      isCloudEnabled ? '${cdnBaseUrl!}broadcast.json' : null;
 
   /// URL for a song folder file. [folderPath] is e.g. 'shem/david_dd_1_v2'.
   static String? urlForSongFile(String folderPath, String filename) =>

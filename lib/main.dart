@@ -5,6 +5,8 @@ import 'config/env_config.dart';
 import 'screens/main_shell_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/cache_keys_service.dart';
+import 'services/font_size_preference_service.dart';
+import 'services/orientation_preference_service.dart';
 import 'services/song_download_service.dart';
 import 'services/terms_agreement_service.dart';
 import 'services/theme_preference_service.dart';
@@ -13,10 +15,13 @@ import 'theme/theme_variant_scope.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('EnvConfig: keyName=${EnvConfig.keyName}');
+  debugPrint('EnvConfig: release=${EnvConfig.release}');
   await CacheKeysService.checkKeysAndClearIfChanged();
   await SongDownloadService.cleanupDownloadsOnStart();
+  await OrientationPreferenceService.applyStoredOrientation();
   final initialVariant = await ThemePreferenceService.getVariant();
+  FontSizePreferenceService.optionNotifier.value =
+      await FontSizePreferenceService.getOption();
   final hasAgreedTerms = await TermsAgreementService.hasAgreed();
   TermsAgreementService.agreedNotifier.value = hasAgreedTerms;
   runApp(
@@ -64,17 +69,28 @@ class _KolenuAppState extends State<KolenuApp> {
     return ThemeVariantScope(
       variant: _variant,
       onVariantChanged: _onVariantChanged,
-      child: ValueListenableBuilder<bool>(
-        valueListenable: TermsAgreementService.agreedNotifier,
-        builder: (context, hasAgreedTerms, _) {
-          return MaterialApp(
-            title: 'Kolenu',
-            theme: KolenuTheme.light(_variant),
-            darkTheme: KolenuTheme.dark(_variant),
-            themeMode: ThemeMode.system,
-            home: hasAgreedTerms
-                ? const MainShellScreen()
-                : WelcomeScreen(onContinue: _onTermsAgreed),
+      child: ValueListenableBuilder<FontSizeOption>(
+        valueListenable: FontSizePreferenceService.optionNotifier,
+        builder: (context, fontOption, _) {
+          final textScaler = FontSizePreferenceService.textScalerFor(
+            fontOption,
+          );
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: TermsAgreementService.agreedNotifier,
+              builder: (context, hasAgreedTerms, _) {
+                return MaterialApp(
+                  title: 'Kolenu',
+                  theme: KolenuTheme.light(_variant),
+                  darkTheme: KolenuTheme.dark(_variant),
+                  themeMode: ThemeMode.system,
+                  home: hasAgreedTerms
+                      ? const MainShellScreen()
+                      : WelcomeScreen(onContinue: _onTermsAgreed),
+                );
+              },
+            ),
           );
         },
       ),

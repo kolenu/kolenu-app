@@ -1,12 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/kolenu_logo.dart';
 import 'legal_documents_screen.dart';
 import 'settings_screen.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  late final Future<String> _versionLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    _versionLabel = _loadVersionLabel();
+  }
+
+  Future<String> _loadVersionLabel() async {
+    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    final String version = packageInfo.version.trim();
+    final String buildNumber = packageInfo.buildNumber.trim();
+
+    if (version.isEmpty) {
+      return 'Version';
+    }
+
+    if (buildNumber.isEmpty) {
+      return 'Version $version';
+    }
+
+    return 'Version $version+$buildNumber';
+  }
 
   Future<void> _sendFeedback() async {
     final Uri emailUri = Uri(
@@ -276,12 +306,21 @@ class AboutScreen extends StatelessWidget {
                 child: const Text('View All Legal Documents'),
               ),
               const SizedBox(height: 40),
-              Text(
-                'Version 1.0.0',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
+              FutureBuilder<String>(
+                future: _versionLabel,
+                builder: (context, snapshot) {
+                  final String versionLabel =
+                      snapshot.data ??
+                      'Version ${snapshot.hasError ? 'Unavailable' : '...'}';
+
+                  return Text(
+                    versionLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  );
+                },
               ),
               const SizedBox(height: 32),
             ],

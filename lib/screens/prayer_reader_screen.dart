@@ -11,7 +11,62 @@ import '../services/loop_preference_service.dart';
 import '../services/playback_speed_preference_service.dart';
 import '../services/prayer_service.dart';
 import '../services/song_download_service.dart';
-import 'practice_dialog.dart';
+import '../services/transliteration_service.dart';
+import 'settings_screen.dart';
+
+/// What to show below each Hebrew word.
+enum WordHintMode { hebrewOnly, translation, transliteration }
+
+/// Icon for word hint mode (Hebrew א, א|A, א|abc) - uses Flutter Text so Hebrew renders.
+class _WordHintIcon extends StatelessWidget {
+  const _WordHintIcon({required this.mode, this.size = 56});
+
+  final WordHintMode mode;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bgColor = colorScheme.primaryContainer;
+    final fgColor = colorScheme.onPrimaryContainer;
+
+    final child = switch (mode) {
+      WordHintMode.hebrewOnly => Text(
+        'א',
+        style: TextStyle(fontSize: 36, color: fgColor),
+      ),
+      WordHintMode.translation => Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('א', style: TextStyle(fontSize: 28, color: fgColor)),
+          const SizedBox(width: 4),
+          Text('A', style: TextStyle(fontSize: 28, color: fgColor)),
+        ],
+      ),
+      WordHintMode.transliteration => Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('א', style: TextStyle(fontSize: 24, color: fgColor)),
+          const SizedBox(width: 4),
+          Text('abc', style: TextStyle(fontSize: 18, color: fgColor)),
+        ],
+      ),
+    };
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(size * 0.2),
+      ),
+      alignment: Alignment.center,
+      child: FittedBox(fit: BoxFit.scaleDown, child: child),
+    );
+  }
+}
 
 class PrayerReaderScreen extends StatefulWidget {
   const PrayerReaderScreen({
@@ -20,7 +75,7 @@ class PrayerReaderScreen extends StatefulWidget {
     required this.prayerFile,
     required this.title,
     required this.titleHebrew,
-    this.selectedVersionId,
+    this.selectedRecordingId,
     this.difficulty,
     this.localSongFolderId,
   });
@@ -30,8 +85,8 @@ class PrayerReaderScreen extends StatefulWidget {
   final String title;
   final String titleHebrew;
 
-  /// If set, use this version's audio when prayer has multiple versions.
-  final String? selectedVersionId;
+  /// If set, use this recording's audio when prayer has multiple recordings.
+  final String? selectedRecordingId;
 
   /// Optional difficulty level (L1–L4) for practice hints.
   final String? difficulty;
@@ -54,15 +109,12 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   StreamSubscription<Duration>? _positionSub;
   int _currentWordIndex = -1;
   int _currentPage = 0;
-  bool _sentenceMode = false;
-  int? _sentencePausedAt;
-  bool _showTips = false;
+
+  /// Word hint mode: Hebrew only, or show translation/transliteration below each word.
+  WordHintMode _wordHintMode = WordHintMode.hebrewOnly;
   int? _tappedWordIndex;
   PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
   bool _loopOne = false;
-
-  /// Sentences practiced in this session (by index).
-  final Set<int> _practicedSentencesInSession = {};
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -179,7 +231,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           title: widget.title,
           titleHebrew: widget.titleHebrew,
         );
-        audioFile = content.resolveAudioFile(widget.selectedVersionId, []);
+        audioFile = content.resolveAudioFile(widget.selectedRecordingId, []);
       }
 
       if (!mounted) return;
@@ -279,15 +331,12 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       setState(() {
         _currentWordIndex = newIndex;
       });
-      if (_sentenceMode && content != null) {
-        _checkSentencePause(secForSync);
-      }
       if (content != null &&
           content.sentences.isNotEmpty &&
           _currentWordIndex >= 0) {
         final sentence = _sentenceIndexForWord(content, _currentWordIndex);
         final pageForSentence = sentence ~/ _sentencesPerPage;
-        if (pageForSentence != _currentPage && _sentencePausedAt == null) {
+        if (pageForSentence != _currentPage) {
           setState(() {
             _currentPage = pageForSentence;
           });
@@ -337,27 +386,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     return -1;
   }
 
-  void _checkSentencePause(double sec) {
-    final content = _content!;
-    if (content.sentences.isEmpty) return;
-    for (var s = 0; s < content.sentences.length; s++) {
-      final endIdx = content.sentenceEndWordIndex(s);
-      if (endIdx >= 0 &&
-          endIdx < content.words.length &&
-          sec >= content.words[endIdx].end) {
-        if (_sentencePausedAt == null) {
-          _player.pause();
-          if (mounted) {
-            setState(() => _sentencePausedAt = s);
-          }
-        }
-        return;
-      }
-    }
-  }
-
   Future<void> _play() async {
-    _sentencePausedAt = null;
     await _player.play();
     setState(() {});
   }
@@ -392,10 +421,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     final pageCount = _pageCount(content);
     final newPage = page.clamp(0, pageCount - 1);
     if (!mounted) return;
-    setState(() {
-      _currentPage = newPage;
-      _sentencePausedAt = null;
-    });
+    setState(() => _currentPage = newPage);
     if (content.audio != null &&
         _audioError == null &&
         content.words.isNotEmpty) {
@@ -407,69 +433,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     }
   }
 
-  Future<void> _onNextSentence() async {
-    if (_sentencePausedAt == null) return;
-    final content = _content!;
-    final nextSentence = _sentencePausedAt! + 1;
-    if (nextSentence >= content.sentences.length) {
-      if (mounted) setState(() => _sentencePausedAt = null);
-      await _player.play();
-      return;
-    }
-    final startWordIdx = content.sentenceEndWordIndex(_sentencePausedAt!) + 1;
-    if (startWordIdx < content.words.length) {
-      final startSec = content.words[startWordIdx].start;
-      await _seekToContentTime(startSec);
-    }
-    if (mounted) setState(() => _sentencePausedAt = null);
-    await _player.play();
-  }
-
-  Future<void> _onRepeatSentence() async {
-    if (_sentencePausedAt == null) return;
-    final content = _content!;
-    final startWordIdx = _sentencePausedAt! == 0
-        ? 0
-        : content.sentenceEndWordIndex(_sentencePausedAt! - 1) + 1;
-    if (startWordIdx < content.words.length) {
-      final startSec = content.words[startWordIdx].start;
-      await _seekToContentTime(startSec);
-    }
-    if (mounted) setState(() => _sentencePausedAt = null);
-    await _player.play();
-  }
-
-  void _openPracticeDialog(BuildContext context) {
-    String? sentenceText;
-    int? sentenceIndex;
-    int totalSentences = 0;
-    final content = _content;
-    if (content != null && content.sentences.isNotEmpty) {
-      sentenceIndex = (_currentPage * _sentencesPerPage).clamp(
-        0,
-        content.sentences.length - 1,
-      );
-      sentenceText = content.sentences[sentenceIndex];
-      totalSentences = content.sentences.length;
-    }
-    showDialog<void>(
-      context: context,
-      builder: (context) => PracticeDialog(
-        sentenceText: sentenceText,
-        difficulty: widget.difficulty,
-        sentenceIndex: sentenceIndex,
-        totalSentences: totalSentences,
-        practicedCount: _practicedSentencesInSession.length,
-      ),
-    ).then((_) {
-      if (sentenceIndex != null && mounted) {
-        setState(() {
-          _practicedSentencesInSession.add(sentenceIndex!);
-        });
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -479,60 +442,29 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           onPressed: () => Navigator.of(context).pop(),
           tooltip: 'Back',
         ),
-        title: Text(widget.title),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: Text(widget.title)),
+            if (widget.localSongFolderId != null) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.offline_pin_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ],
+        ),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'Options',
-            onSelected: (value) async {
-              if (value == 'sentence_mode') {
-                setState(() {
-                  _sentenceMode = !_sentenceMode;
-                  if (!_sentenceMode) _sentencePausedAt = null;
-                });
-              } else if (value == 'loop') {
-                final v = !_loopOne;
-                setState(() => _loopOne = v);
-                await LoopPreferenceService.setLoopOne(v);
-                await _player.setLoopMode(v ? LoopMode.one : LoopMode.off);
-              } else if (value == 'practice') {
-                _openPracticeDialog(context);
-              }
-            },
-            itemBuilder: (context) {
-              final canSentence =
-                  _content != null && _content!.sentences.isNotEmpty;
-              final canLoop =
-                  _content != null &&
-                  _content!.audio != null &&
-                  _audioError == null;
-              return [
-                if (canSentence)
-                  PopupMenuItem(
-                    value: 'sentence_mode',
-                    child: Text(
-                      _sentenceMode
-                          ? 'Sentence mode: On'
-                          : 'Sentence mode: Off',
-                    ),
-                  ),
-                if (canLoop)
-                  PopupMenuItem(
-                    value: 'loop',
-                    child: Text(_loopOne ? 'Loop: On' : 'Loop: Off'),
-                  ),
-                const PopupMenuItem(
-                  value: 'practice',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.mic_rounded, size: 22),
-                      SizedBox(width: 12),
-                      Text('Practice pronunciation'),
-                    ],
-                  ),
-                ),
-              ];
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
             },
           ),
         ],
@@ -549,7 +481,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     final content = _content!;
     final hasAudio = content.audio != null && _audioError == null;
     final playing = _player.playing;
-    final pausedAt = _sentencePausedAt;
     final pageCount = _pageCount(content);
     final canPrev = _currentPage > 0;
     final canNext = _currentPage < pageCount - 1;
@@ -576,122 +507,23 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 const SizedBox(width: 8),
                 if (hasAudio)
                   Semantics(
-                    label: playing && pausedAt == null ? 'Pause' : 'Play',
+                    label: playing ? 'Pause' : 'Play',
                     button: true,
                     child: FilledButton.icon(
                       icon: Icon(
-                        playing && pausedAt == null
+                        playing
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                       ),
-                      label: Text(
-                        playing && pausedAt == null ? 'Pause' : 'Play',
-                      ),
-                      onPressed: pausedAt != null
-                          ? null
-                          : () async {
-                              if (playing) {
-                                await _pause();
-                              } else {
-                                await _play();
-                              }
-                            },
+                      label: Text(playing ? 'Pause' : 'Play'),
+                      onPressed: () async {
+                        if (playing) {
+                          await _pause();
+                        } else {
+                          await _play();
+                        }
+                      },
                     ),
-                  ),
-                if (hasAudio) const SizedBox(width: 8),
-                if (hasAudio)
-                  PopupMenuButton<PlaybackSpeed>(
-                    tooltip: 'Playback speed',
-                    initialValue: _playbackSpeed,
-                    onSelected: _setPlaybackSpeed,
-                    icon: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.speed_rounded,
-                            size: 18,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSecondaryContainer,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _playbackSpeed.displayName.split(
-                              ' ',
-                            )[0], // "Practice", "Synagogue", or "Fluent"
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSecondaryContainer,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
-                      final selected = speed == _playbackSpeed;
-                      return PopupMenuItem<PlaybackSpeed>(
-                        value: speed,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  selected
-                                      ? Icons.check_circle
-                                      : Icons.circle_outlined,
-                                  size: 20,
-                                  color: selected
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.outline,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        speed.displayName,
-                                        style: TextStyle(
-                                          fontWeight: selected
-                                              ? FontWeight.w600
-                                              : FontWeight.w500,
-                                        ),
-                                      ),
-                                      Text(
-                                        speed.description,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
                   ),
                 if (hasAudio) const SizedBox(width: 8),
                 Semantics(
@@ -711,38 +543,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
               'Page ${_currentPage + 1} of $pageCount',
               style: Theme.of(context).textTheme.labelMedium,
             ),
-            if (hasAudio && pausedAt != null) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Semantics(
-                    label: 'Repeat current sentence',
-                    button: true,
-                    child: FilledButton.tonal(
-                      onPressed: _onRepeatSentence,
-                      child: const Text('Repeat'),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Semantics(
-                    label: 'Next sentence',
-                    button: true,
-                    child: FilledButton(
-                      onPressed: _onNextSentence,
-                      child: const Text('Next sentence'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  bool _hasVersionMetadata(PrayerContent content) {
+  bool _hasRecordingMetadata(PrayerContent content) {
     return (content.performerName != null &&
             content.performerName!.isNotEmpty) ||
         (content.audioLicense != null && content.audioLicense!.isNotEmpty) ||
@@ -750,7 +557,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         (content.attribution != null && content.attribution!.isNotEmpty);
   }
 
-  String _versionMetadataLine(PrayerContent content) {
+  String _recordingMetadataLine(PrayerContent content) {
     final parts = <String>[];
     if (content.performerName != null && content.performerName!.isNotEmpty) {
       parts.add(content.performerName!);
@@ -789,11 +596,11 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       builder: (context, constraints) {
         final viewportHeight = constraints.maxHeight;
         final viewportWidth = constraints.maxWidth;
-        final canTranslations = content.words.isNotEmpty;
-        final hasMeta = _hasVersionMetadata(content);
+        final hasMeta = _hasRecordingMetadata(content);
+        final hasChips = content.words.isNotEmpty;
         final topSectionHeight =
             120.0 +
-            (canTranslations ? 52.0 : 0) +
+            (hasChips ? 44.0 : 0) +
             (_audioError != null ? 80.0 : 0) +
             (content.description != null && content.description!.isNotEmpty
                 ? 40.0
@@ -806,23 +613,124 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (canTranslations)
+              if (content.words.isNotEmpty ||
+                  (content.audio != null && _audioError == null))
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FilterChip(
-                      selected: _showTips,
-                      label: Text(
-                        _showTips ? 'Translation On' : 'Translation Off',
-                      ),
-                      onSelected: (selected) {
-                        setState(() {
-                          _showTips = selected;
-                          if (!_showTips) _tappedWordIndex = null;
-                        });
-                      },
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (content.words.isNotEmpty)
+                        PopupMenuButton<WordHintMode>(
+                          tooltip: 'Word hints',
+                          onSelected: (mode) {
+                            setState(() {
+                              _wordHintMode = mode;
+                              if (mode == WordHintMode.hebrewOnly) {
+                                _tappedWordIndex = null;
+                              }
+                            });
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: WordHintMode.hebrewOnly,
+                              child: Row(
+                                children: [
+                                  _WordHintIcon(
+                                    mode: WordHintMode.hebrewOnly,
+                                    size: 40,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Hebrew Only'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: WordHintMode.translation,
+                              child: Row(
+                                children: [
+                                  _WordHintIcon(
+                                    mode: WordHintMode.translation,
+                                    size: 40,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Translation'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: WordHintMode.transliteration,
+                              child: Row(
+                                children: [
+                                  _WordHintIcon(
+                                    mode: WordHintMode.transliteration,
+                                    size: 40,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text('Transliteration'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          child: _WordHintIcon(mode: _wordHintMode, size: 38),
+                        ),
+                      if (content.words.isNotEmpty &&
+                          content.audio != null &&
+                          _audioError == null)
+                        const SizedBox(width: 8),
+                      if (content.audio != null && _audioError == null)
+                        PopupMenuButton<PlaybackSpeed>(
+                          tooltip: 'Playback speed',
+                          initialValue: _playbackSpeed,
+                          onSelected: _setPlaybackSpeed,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.speed_rounded,
+                              size: 22,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSecondaryContainer,
+                            ),
+                          ),
+                          itemBuilder: (context) => PlaybackSpeed.values.map((
+                            speed,
+                          ) {
+                            final selected = speed == _playbackSpeed;
+                            return PopupMenuItem<PlaybackSpeed>(
+                              value: speed,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    selected
+                                        ? Icons.check_circle
+                                        : Icons.circle_outlined,
+                                    size: 20,
+                                    color: selected
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Theme.of(context).colorScheme.outline,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    speed.displayName,
+                                    style: TextStyle(
+                                      fontWeight: selected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                    ],
                   ),
                 ),
               if (_audioError != null)
@@ -876,10 +784,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   textAlign: TextAlign.center,
                 ),
               ],
-              if (_hasVersionMetadata(content)) ...[
+              if (_hasRecordingMetadata(content)) ...[
                 const SizedBox(height: 8),
                 Text(
-                  _versionMetadataLine(content),
+                  _recordingMetadataLine(content),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -988,7 +896,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 ),
               ),
             ),
-            if (_showTips && w.translation != null && w.translation!.isNotEmpty)
+            if (_wordHintMode == WordHintMode.translation &&
+                w.translation != null &&
+                w.translation!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
@@ -999,13 +909,30 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   textDirection: TextDirection.ltr,
                 ),
               )
-            else if (isTapped &&
-                w.translation != null &&
-                w.translation!.isNotEmpty)
+            else if (_wordHintMode == WordHintMode.transliteration)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
-                  w.translation!,
+                  w.transliteration != null && w.transliteration!.isNotEmpty
+                      ? w.transliteration!
+                      : TransliterationService.transliterate(w.word),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textDirection: TextDirection.ltr,
+                ),
+              )
+            else if (isTapped &&
+                (w.translation != null && w.translation!.isNotEmpty ||
+                    (w.transliteration != null &&
+                        w.transliteration!.isNotEmpty) ||
+                    TransliterationService.transliterate(w.word).isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  w.translation ??
+                      w.transliteration ??
+                      TransliterationService.transliterate(w.word),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.primary,
                   ),

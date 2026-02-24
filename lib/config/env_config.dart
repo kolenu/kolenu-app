@@ -5,9 +5,10 @@ import 'embedded_keys.dart';
 class EnvConfig {
   EnvConfig._();
 
-  static String get keyName {
+  /// Release identifier (e.g. dummy, prod1). Matches keys/[release]/, cdn/source/[release]/.
+  static String get release {
     const v = String.fromEnvironment('KOLENU_KEY_NAME', defaultValue: '');
-    return v.isNotEmpty ? v : EmbeddedKeys.keyName;
+    return v.isNotEmpty ? v : EmbeddedKeys.release;
   }
 
   static String get downloadKey {

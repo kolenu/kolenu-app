@@ -68,14 +68,14 @@ class PrayerListItem {
   }
 }
 
-/// One audio version for a prayer. If a prayer has multiple, user can choose.
-class VersionOption {
-  const VersionOption({required this.id, required this.name, this.audio});
+/// One audio recording for a prayer. If a prayer has multiple, user can choose.
+class RecordingOption {
+  const RecordingOption({required this.id, required this.name, this.audio});
 
   final String id;
   final String name;
 
-  /// Asset filename (e.g. audio.mp3). If null, no audio for this version.
+  /// Asset filename (e.g. audio.mp3). If null, no audio for this recording.
   final String? audio;
 
   /// Display label: folder name when id is a path (e.g. common/shema/dave_wa_1_v1 → dave_wa_1_v1), else name.
@@ -86,8 +86,8 @@ class VersionOption {
     return name;
   }
 
-  static VersionOption fromJson(Map<String, dynamic> json) {
-    return VersionOption(
+  static RecordingOption fromJson(Map<String, dynamic> json) {
+    return RecordingOption(
       id: json['id'] as String,
       name: json['name'] as String,
       audio: json['audio'] as String?,
@@ -95,19 +95,21 @@ class VersionOption {
   }
 }
 
-/// Word with timing and optional translation (from prayer JSON words array)
+/// Word with timing and optional translation/transliteration (from prayer JSON words array)
 class WordSegment {
   const WordSegment({
     required this.word,
     required this.start,
     required this.end,
     this.translation,
+    this.transliteration,
   });
 
   final String word;
   final double start;
   final double end;
   final String? translation;
+  final String? transliteration;
 
   static WordSegment fromJson(Map<String, dynamic> json) {
     return WordSegment(
@@ -115,6 +117,7 @@ class WordSegment {
       start: (json['start'] as num).toDouble(),
       end: (json['end'] as num).toDouble(),
       translation: json['translation'] as String?,
+      transliteration: json['transliteration'] as String?,
     );
   }
 }
@@ -131,7 +134,7 @@ class PrayerContent {
     this.sentenceEndWordIndices,
     required this.words,
     this.audio,
-    this.versions,
+    this.recordings,
     this.audioOffsetSeconds = 0,
     this.performerName,
     this.audioLicense,
@@ -150,11 +153,11 @@ class PrayerContent {
   final List<int>? sentenceEndWordIndices;
   final List<WordSegment> words;
 
-  /// Single audio file (legacy). Ignored if [versions] is non-null.
+  /// Single audio file (legacy). Ignored if [recordings] is non-null.
   final String? audio;
 
-  /// Multiple versions; user picks one.
-  final List<VersionOption>? versions;
+  /// Multiple recordings; user picks one.
+  final List<RecordingOption>? recordings;
 
   /// Seconds to add to playback position before matching to word timestamps (fixes sync).
   final double audioOffsetSeconds;
@@ -171,17 +174,17 @@ class PrayerContent {
   /// Sponsor/attribution line. From doc JSON.
   final String? attribution;
 
-  /// Resolves which audio file to use. [selectedVersionId] if non-null and has audio;
-  /// otherwise first version in [priorityOrder] that has audio; otherwise first version with audio.
+  /// Resolves which audio file to use. [selectedRecordingId] if non-null and has audio;
+  /// otherwise first recording in [priorityOrder] that has audio; otherwise first recording with audio.
   String? resolveAudioFile(
-    String? selectedVersionId,
+    String? selectedRecordingId,
     List<String> priorityOrder,
   ) {
-    if (versions != null && versions!.isNotEmpty) {
-      // 1. Try selected version if specified
-      if (selectedVersionId != null) {
-        for (final v in versions!) {
-          if (v.id == selectedVersionId &&
+    if (recordings != null && recordings!.isNotEmpty) {
+      // 1. Try selected recording if specified
+      if (selectedRecordingId != null) {
+        for (final v in recordings!) {
+          if (v.id == selectedRecordingId &&
               v.audio != null &&
               v.audio!.isNotEmpty) {
             return v.audio;
@@ -190,14 +193,14 @@ class PrayerContent {
       }
       // 2. Try priority order
       for (final id in priorityOrder) {
-        for (final v in versions!) {
+        for (final v in recordings!) {
           if (v.id == id && v.audio != null && v.audio!.isNotEmpty) {
             return v.audio;
           }
         }
       }
-      // 3. Fallback: any version with audio
-      for (final v in versions!) {
+      // 3. Fallback: any recording with audio
+      for (final v in recordings!) {
         if (v.audio != null && v.audio!.isNotEmpty) return v.audio;
       }
       return null;
@@ -241,9 +244,11 @@ class PrayerContent {
           .map((e) => WordSegment.fromJson(e as Map<String, dynamic>))
           .toList(),
       audio: json['audio'] as String?,
-      versions: ((json['versions'] ?? json['performers']) as List<dynamic>?)
-          ?.map((e) => VersionOption.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      recordings:
+          ((json['recordings'] ?? json['versions'] ?? json['performers'])
+                  as List<dynamic>?)
+              ?.map((e) => RecordingOption.fromJson(e as Map<String, dynamic>))
+              .toList(),
       audioOffsetSeconds: (json['audioOffsetSeconds'] as num?)?.toDouble() ?? 0,
       performerName: json['performerName'] as String?,
       audioLicense: json['audioLicense'] as String?,
@@ -277,7 +282,7 @@ class PrayerContent {
       sentenceEndWordIndices: sentenceEndWordIndices,
       words: words,
       audio: 'audio.mp3',
-      versions: [VersionOption(id: id, name: title, audio: 'audio.mp3')],
+      recordings: [RecordingOption(id: id, name: title, audio: 'audio.mp3')],
       audioOffsetSeconds: 0,
       performerName: null,
       audioLicense: null,

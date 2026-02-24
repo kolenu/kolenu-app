@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../config/cdn_config.dart';
 import '../models/prayer.dart';
+import '../services/broadcast_message_service.dart';
 import '../services/cache_keys_service.dart';
+import '../services/offline_tip_service.dart';
 import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/last_played_service.dart';
@@ -10,7 +12,6 @@ import '../services/prayer_service.dart' show PrayerIndex, PrayerService;
 import '../services/progress_service.dart';
 import '../services/song_download_service.dart'
     show SongDownloadService, isSubscribed;
-import 'playlist_screen.dart';
 import 'prayer_reader_screen.dart';
 import 'settings_screen.dart';
 
@@ -23,9 +24,8 @@ class PrayerListScreen extends StatefulWidget {
 
 class _PrayerListScreenState extends State<PrayerListScreen> {
   List<PrayerListItem> _prayers = [];
-  List<VersionOption>? _indexVersions;
+  List<RecordingOption>? _indexRecordings;
   bool _useCloudIndex = false;
-  int _streak = 0;
   bool _loading = true;
   String? _error;
   String _loadingMessage = 'Connecting to the cloud...';
@@ -34,6 +34,44 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   void initState() {
     super.initState();
     _loadPrayers();
+  }
+
+  Future<void> _maybeShowOfflineTip() async {
+    if (!CdnConfig.isCloudEnabled) return;
+    final shown = await OfflineTipService.hasShownTip();
+    if (shown) return;
+    if (!mounted) return;
+    await OfflineTipService.markTipShown();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Tap a prayer to download it for offline listening. The pin icon shows which prayers are cached.',
+        ),
+        duration: Duration(seconds: 5),
+      ),
+    );
+  }
+
+  Future<void> _maybeShowBroadcastMessages() async {
+    final messages = await BroadcastMessageService.fetchMessagesToShow();
+    if (!mounted || messages.isEmpty) return;
+    for (final msg in messages) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(msg.title),
+          content: SingleChildScrollView(child: Text(msg.body)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _playPlaylist() async {
@@ -107,15 +145,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       }
       final resolvedIndex = index;
       if (!mounted) return;
-      final streak = await ProgressService.getStreak();
-      if (!mounted) return;
       setState(() {
         _prayers = resolvedIndex.prayers;
-        _indexVersions = resolvedIndex.versions;
+        _indexRecordings = resolvedIndex.recordings;
         _useCloudIndex = usedCloud;
-        _streak = streak;
         _loading = false;
       });
+      if (mounted) await _maybeShowOfflineTip();
+      if (mounted) await _maybeShowBroadcastMessages();
     } catch (e, st) {
       if (!mounted) return;
       setState(() {
@@ -135,38 +172,19 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         centerTitle: true,
         title: const Text('Kolenu'),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) async {
-              if (value == 'play_playlist') {
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () async {
+              final result = await Navigator.of(context).push<Object?>(
+                MaterialPageRoute<void>(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+              if (result == 'play_playlist' && mounted) {
                 await _playPlaylist();
-              } else if (value == 'playlist') {
-                if (!context.mounted) return;
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const PlaylistScreen(),
-                  ),
-                );
-              } else if (value == 'settings') {
-                if (!context.mounted) return;
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
               }
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'play_playlist',
-                child: Text('Play default playlist'),
-              ),
-              const PopupMenuItem(
-                value: 'playlist',
-                child: Text('Edit default playlist'),
-              ),
-              const PopupMenuItem(value: 'settings', child: Text('Settings')),
-            ],
           ),
         ],
       ),
@@ -243,62 +261,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      children: [
-        if (_streak > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withValues(
-                  alpha: 0.35,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.wb_sunny_outlined,
-                    size: 28,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Welcome back',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _streak == 1
-                              ? 'Good to see you here today.'
-                              : 'You’ve been here $_streak days in a row — we’re glad you’re here.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer
-                                .withValues(alpha: 0.9),
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ..._buildGroupedPrayerTiles(theme),
-      ],
+      children: _buildGroupedPrayerTiles(theme),
     );
   }
 
@@ -334,6 +297,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     return result;
   }
 
+  Future<int> _countCachedRecordings(List<String> recordingIds) async {
+    int count = 0;
+    for (final id in recordingIds) {
+      if (await SongDownloadService.isSongDownloaded(id)) count++;
+    }
+    return count;
+  }
+
   List<Widget> _buildGroupedPrayerTiles(ThemeData theme) {
     final grouped = _groupPrayersByCategory(_prayers);
     return grouped.expand((entry) {
@@ -352,6 +323,12 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           ),
         ),
         ...prayers.map((item) {
+          final recordingIds = _useCloudIndex
+              ? (item.recordings != null && item.recordings!.isNotEmpty
+                    ? item.recordings!
+                    : [item.id])
+              : <String>[];
+          final hasRecordings = recordingIds.isNotEmpty;
           return Builder(
             builder: (tileContext) {
               return Semantics(
@@ -389,10 +366,54 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                       ),
                     ),
                   ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  trailing: hasRecordings
+                      ? FutureBuilder<int>(
+                          future: _countCachedRecordings(recordingIds),
+                          builder: (ctx, snap) {
+                            final cached = snap.data ?? 0;
+                            final total = recordingIds.length;
+                            final anyCached = cached > 0;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (anyCached)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.offline_pin_rounded,
+                                          size: 18,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                        if (total > 1) ...[
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '$cached/$total',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.chevron_right_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                   onTap: () => _openReader(item, tileContext),
                 ),
               );
@@ -413,12 +434,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     final recordingsForPrayer = item.recordings;
     if (recordingsForPrayer != null &&
         recordingsForPrayer.isNotEmpty &&
-        _indexVersions != null &&
-        _indexVersions!.isNotEmpty) {
-      final lastPlayed = await LastPlayedService.getLastPlayedVersion(item.id);
+        _indexRecordings != null &&
+        _indexRecordings!.isNotEmpty) {
+      final lastPlayed = await LastPlayedService.getLastPlayedRecording(
+        item.id,
+      );
       if (!mounted) return;
       final recordingsSet = recordingsForPrayer.toSet();
-      final list = _indexVersions!
+      final list = _indexRecordings!
           .where((v) => recordingsSet.contains(v.id))
           .toList();
       if (list.isEmpty) {
@@ -429,11 +452,11 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         return;
       }
       if (!tileContext.mounted) return;
-      final selected = await _showVersionDropdown(
+      final selected = await _showRecordingDropdown(
         context: tileContext,
         item: item,
-        versions: list,
-        lastPlayedVersionId: lastPlayed,
+        recordings: list,
+        lastPlayedRecordingId: lastPlayed,
       );
       if (!mounted) return;
       if (selected == null) {
@@ -470,10 +493,10 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         );
         if (!success) return;
       } else {
-        _openReaderWithVersion(item, songFolderId, prayerFile, songFolderId);
+        _openReaderWithRecording(item, songFolderId, prayerFile, songFolderId);
       }
     } else {
-      _openReaderWithVersion(item, songFolderId, prayerFile, null);
+      _openReaderWithRecording(item, songFolderId, prayerFile, null);
     }
   }
 
@@ -489,107 +512,129 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     );
     if (!mounted) return false;
     if (success == true) {
-      _openReaderWithVersion(item, songFolderId, prayerFile, songFolderId);
+      _openReaderWithRecording(item, songFolderId, prayerFile, songFolderId);
       return true;
     }
     return false;
   }
 
-  Future<String?> _showVersionDropdown({
+  Future<String?> _showRecordingDropdown({
     required BuildContext context,
     required PrayerListItem item,
-    required List<VersionOption> versions,
-    String? lastPlayedVersionId,
+    required List<RecordingOption> recordings,
+    String? lastPlayedRecordingId,
   }) async {
     final metadataMap = <String, String?>{};
+    final cachedMap = <String, bool>{};
     await Future.wait(
-      versions.map((v) async {
-        final meta = await PrayerService.loadVersionMetadata(
+      recordings.map((v) async {
+        final meta = await PrayerService.loadRecordingMetadata(
           v.id,
           id: item.id,
           title: item.title,
           titleHebrew: item.titleHebrew,
         );
         metadataMap[v.id] = meta;
+        cachedMap[v.id] = await SongDownloadService.isSongDownloaded(v.id);
       }),
     );
     if (!context.mounted) return null;
 
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final renderBox = context.findRenderObject() as RenderBox?;
-    final position = renderBox != null
-        ? renderBox.localToGlobal(Offset.zero) & renderBox.size
-        : const Rect.fromLTWH(0, 0, 1, 1);
-
-    return showMenu<String>(
+    return showModalBottomSheet<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.left,
-        position.bottom,
-        position.right,
-        position.bottom + 8,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      items: versions.map((v) {
-        // Folder layout: each version is a folder with audio.enc.
-        final isLastPlayed = v.id == lastPlayedVersionId;
-        final meta = metadataMap[v.id];
-        return PopupMenuItem<String>(
-          value: v.id,
-          enabled: true,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        v.displayLabel,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (isLastPlayed)
-                      Text(
-                        'Last played',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                  ],
-                ),
-                if (meta != null && meta.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final colorScheme = theme.colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Choose recording',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              ...recordings.map((v) {
+                final isLastPlayed = v.id == lastPlayedRecordingId;
+                final meta = metadataMap[v.id];
+                final cached = cachedMap[v.id] ?? false;
+                return ListTile(
+                  leading: cached
+                      ? Icon(
+                          Icons.offline_pin_rounded,
+                          color: colorScheme.primary,
+                          size: 22,
+                        )
+                      : null,
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(v.displayLabel)),
+                      if (isLastPlayed)
+                        Text(
+                          'Last played',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: meta != null && meta.isNotEmpty
+                      ? Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis)
+                      : null,
+                  trailing: cached
+                      ? IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Remove from device',
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (c) => AlertDialog(
+                                title: const Text('Remove from device?'),
+                                content: Text(
+                                  'Remove "${v.displayLabel}" from this device? You can download it again later.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && ctx.mounted) {
+                              await SongDownloadService.deleteRecording(v.id);
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) setState(() {});
+                            }
+                          },
+                        )
+                      : null,
+                  onTap: () => Navigator.pop(ctx, v.id),
+                );
+              }),
+            ],
           ),
         );
-      }).toList(),
+      },
     );
   }
 
-  void _openReaderWithVersion(
+  void _openReaderWithRecording(
     PrayerListItem item,
-    String? selectedVersionId,
+    String? selectedRecordingId,
     String prayerFile, [
     String? localSongFolderId,
   ]) {
-    if (selectedVersionId != null) {
-      LastPlayedService.setLastPlayedVersion(item.id, selectedVersionId);
+    if (selectedRecordingId != null) {
+      LastPlayedService.setLastPlayedRecording(item.id, selectedRecordingId);
     }
     final now = DateTime.now();
     final dateStr =
@@ -604,7 +649,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               prayerFile: prayerFile,
               title: item.title,
               titleHebrew: item.titleHebrew,
-              selectedVersionId: selectedVersionId,
+              selectedRecordingId: selectedRecordingId,
               difficulty: item.difficulty,
               localSongFolderId: localSongFolderId,
             ),

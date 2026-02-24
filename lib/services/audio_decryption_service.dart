@@ -35,16 +35,15 @@ class AudioDecryptionService {
   }
 
   static Future<File> _decryptBytes(Uint8List encryptedBytes) async {
-    final keyName = EnvConfig.keyName;
+    final release = EnvConfig.release;
     final keyHex = EnvConfig.audioKey;
 
     // Keys must come from setenv.sh; exit early if not configured
-    if (keyName.isEmpty || keyHex.isEmpty) {
+    if (release.isEmpty || keyHex.isEmpty) {
       throw Exception(
         'Keys not loaded from setenv.sh. Run: source setenv.sh <version> (e.g. dummy) then ./run.sh run',
       );
     }
-    debugPrint('Decrypting audio with key: $keyName');
 
     // Extract IV (first 16 bytes) and ciphertext
     if (encryptedBytes.length < 16) {
@@ -86,7 +85,7 @@ class AudioDecryptionService {
       return _writeToTempCache(Uint8List.fromList(decrypted));
     } catch (e) {
       throw Exception(
-        'Audio decryption failed (key: $keyName): $e. '
+        'Audio decryption failed (release: $release): $e. '
         'Verify source setenv.sh <version> matches the CDN version you downloaded from.',
       );
     }

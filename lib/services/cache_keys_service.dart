@@ -9,7 +9,7 @@ import '../config/env_config.dart';
 import 'cloud_index_service.dart';
 import 'song_download_service.dart';
 
-/// Manages cache keys (keyName, downloadKey, audioKey) for cache invalidation.
+/// Manages cache keys (release, downloadKey, audioKey) for cache invalidation.
 /// When keys change, cache must be cleared.
 class CacheKeysService {
   CacheKeysService._();
@@ -36,7 +36,7 @@ class CacheKeysService {
     try {
       final path = await _getCacheKeysPath();
       final json = jsonEncode({
-        'keyName': EnvConfig.keyName,
+        'release': EnvConfig.release,
         'downloadKey': EnvConfig.downloadKey,
         'audioKey': EnvConfig.audioKey,
       });
@@ -47,7 +47,7 @@ class CacheKeysService {
   }
 
   /// Load cached keys. Returns null if not found or invalid.
-  static Future<({String keyName, String downloadKey, String audioKey})?>
+  static Future<({String release, String downloadKey, String audioKey})?>
   loadCacheKeys() async {
     try {
       final path = await _getCacheKeysPath();
@@ -57,14 +57,15 @@ class CacheKeysService {
       final json = jsonDecode(await file.readAsString());
       if (json is! Map<String, dynamic>) return null;
 
-      final keyName = json['keyName'] as String?;
+      // Support both 'release' and legacy 'keyName'
+      final release = json['release'] as String? ?? json['keyName'] as String?;
       final downloadKey = json['downloadKey'] as String?;
       final audioKey = json['audioKey'] as String?;
 
-      if (keyName == null || downloadKey == null || audioKey == null) {
+      if (release == null || downloadKey == null || audioKey == null) {
         return null;
       }
-      return (keyName: keyName, downloadKey: downloadKey, audioKey: audioKey);
+      return (release: release, downloadKey: downloadKey, audioKey: audioKey);
     } catch (e, st) {
       debugPrint('CacheKeysService loadCacheKeys error: $e\n$st');
       return null;
@@ -77,11 +78,11 @@ class CacheKeysService {
     final cached = await loadCacheKeys();
     if (cached == null) return false;
 
-    final currentKeyName = EnvConfig.keyName;
+    final currentRelease = EnvConfig.release;
     final currentDownloadKey = EnvConfig.downloadKey;
     final currentAudioKey = EnvConfig.audioKey;
 
-    if (cached.keyName == currentKeyName &&
+    if (cached.release == currentRelease &&
         cached.downloadKey == currentDownloadKey &&
         cached.audioKey == currentAudioKey) {
       return false;
