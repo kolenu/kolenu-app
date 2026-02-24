@@ -115,6 +115,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   int? _tappedWordIndex;
   PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
   bool _loopOne = false;
+  bool _playButtonPressed = false;
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -469,9 +470,18 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           ),
         ],
       ),
-      body: Directionality(
-        textDirection: TextDirection.rtl,
-        child: _buildBody(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF5F8F6), Color(0xFFEEF3F1)],
+          ),
+        ),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: _buildBody(),
+        ),
       ),
       bottomNavigationBar: _content != null ? _buildPlayBar() : null,
     );
@@ -484,13 +494,30 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
     final pageCount = _pageCount(content);
     final canPrev = _currentPage > 0;
     final canNext = _currentPage < pageCount - 1;
+    final progress = pageCount > 0 ? (_currentPage + 1) / pageCount : 1.0;
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            SizedBox(
+              height: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -504,28 +531,65 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                         : null,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 if (hasAudio)
                   Semantics(
                     label: playing ? 'Pause' : 'Play',
                     button: true,
-                    child: FilledButton.icon(
-                      icon: Icon(
-                        playing
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
+                    child: GestureDetector(
+                      onTapDown: (_) => setState(() => _playButtonPressed = true),
+                      onTapUp: (_) => setState(() => _playButtonPressed = false),
+                      onTapCancel: () => setState(() => _playButtonPressed = false),
+                      child: AnimatedScale(
+                        scale: _playButtonPressed ? 0.96 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        child: Material(
+                          elevation: 3,
+                          shadowColor: Colors.black.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(28),
+                          color: Theme.of(context).colorScheme.primary,
+                          child: InkWell(
+                            onTap: () async {
+                              if (playing) {
+                                await _pause();
+                              } else {
+                                await _play();
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(28),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 16,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    playing
+                                        ? Icons.graphic_eq_rounded
+                                        : Icons.play_arrow_rounded,
+                                    color: Theme.of(context).colorScheme.onPrimary,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    playing ? 'Pause' : 'Play',
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      label: Text(playing ? 'Pause' : 'Play'),
-                      onPressed: () async {
-                        if (playing) {
-                          await _pause();
-                        } else {
-                          await _play();
-                        }
-                      },
                     ),
                   ),
-                if (hasAudio) const SizedBox(width: 8),
+                if (hasAudio) const SizedBox(width: 12),
                 Semantics(
                   label: canNext ? 'Next page' : 'Next page (disabled)',
                   button: true,
@@ -537,11 +601,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Page ${_currentPage + 1} of $pageCount',
-              style: Theme.of(context).textTheme.labelMedium,
             ),
           ],
         ),
@@ -796,19 +855,32 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
               ],
               const SizedBox(height: 24),
               Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: minTextHeight,
-                    maxWidth: viewportWidth - padding * 2,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: viewportWidth - padding * 2,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 20,
+                        color: Colors.black.withValues(alpha: 0.05),
                       ),
-                      child: _buildWordByWord(content),
+                    ],
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: minTextHeight,
+                      maxWidth: viewportWidth - padding * 2 - 48,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: viewportWidth - padding * 2 - 48,
+                        ),
+                        child: _buildWordByWord(content),
+                      ),
                     ),
                   ),
                 ),

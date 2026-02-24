@@ -168,6 +168,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
         title: const Text('Kolenu'),
@@ -260,7 +261,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     }
     final theme = Theme.of(context);
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
       children: _buildGroupedPrayerTiles(theme),
     );
   }
@@ -307,22 +308,26 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
 
   List<Widget> _buildGroupedPrayerTiles(ThemeData theme) {
     final grouped = _groupPrayersByCategory(_prayers);
-    return grouped.expand((entry) {
+    return grouped.map((entry) {
       final category = entry.key;
       final prayers = entry.value;
-      return [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Text(
-            prayerCategoryDisplayName(category),
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 20),
+              child: Text(
+                prayerCategoryDisplayName(category).toUpperCase(),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  letterSpacing: 1.5,
+                  color: Colors.green.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ),
-        ...prayers.map((item) {
+            ...prayers.map((item) {
           final recordingIds = _useCloudIndex
               ? (item.recordings != null && item.recordings!.isNotEmpty
                     ? item.recordings!
@@ -331,96 +336,119 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           final hasRecordings = recordingIds.isNotEmpty;
           return Builder(
             builder: (tileContext) {
-              return Semantics(
-                label:
-                    '${item.title}, ${item.titleHebrew}. Double tap to open.',
-                button: true,
-                child: ListTile(
-                  leading: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer.withValues(
-                        alpha: 0.6,
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.04),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.menu_book_rounded,
-                      color: theme.colorScheme.onPrimaryContainer,
-                      size: 24,
-                    ),
+                    ],
                   ),
-                  title: Text(
-                    item.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      item.titleHebrew,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                  child: Semantics(
+                    label:
+                        '${item.title}, ${item.titleHebrew}. Double tap to open.',
+                    button: true,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
                       ),
-                    ),
-                  ),
-                  trailing: hasRecordings
-                      ? FutureBuilder<int>(
-                          future: _countCachedRecordings(recordingIds),
-                          builder: (ctx, snap) {
-                            final cached = snap.data ?? 0;
-                            final total = recordingIds.length;
-                            final anyCached = cached > 0;
-                            return Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (anyCached)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.offline_pin_rounded,
-                                          size: 18,
-                                          color: theme.colorScheme.primary,
-                                        ),
-                                        if (total > 1) ...[
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            '$cached/$total',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ],
-                            );
-                          },
-                        )
-                      : Icon(
-                          Icons.chevron_right_rounded,
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer
+                              .withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          color: theme.colorScheme.onPrimaryContainer,
+                          size: 24,
+                        ),
+                      ),
+                      title: Text(
+                        item.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
-                  onTap: () => _openReader(item, tileContext),
+                      ),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          item.titleHebrew,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      trailing: hasRecordings
+                          ? FutureBuilder<int>(
+                              future: _countCachedRecordings(recordingIds),
+                              builder: (ctx, snap) {
+                                final cached = snap.data ?? 0;
+                                final total = recordingIds.length;
+                                final anyCached = cached > 0;
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (anyCached)
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 4),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.offline_pin_rounded,
+                                              size: 18,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                            if (total > 1) ...[
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                '$cached/$total',
+                                                style: theme.textTheme.labelSmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          theme.colorScheme.primary,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ],
+                                );
+                              },
+                            )
+                          : Icon(
+                              Icons.chevron_right_rounded,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                      onTap: () => _openReader(item, tileContext),
+                    ),
+                  ),
                 ),
               );
             },
           );
         }),
-      ];
+          ],
+        ),
+      );
     }).toList();
   }
 
