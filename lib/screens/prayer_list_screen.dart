@@ -382,10 +382,10 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                         ),
                       ),
                       subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           item.titleHebrew,
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface,
                           ),
                         ),

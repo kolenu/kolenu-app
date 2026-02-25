@@ -446,7 +446,29 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(child: Text(widget.title)),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Directionality(
+                    textDirection: TextDirection.rtl,
+                    child: Text(
+                      widget.titleHebrew,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (widget.localSongFolderId != null) ...[
               const SizedBox(width: 8),
               Icon(
@@ -458,6 +480,101 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           ],
         ),
         actions: [
+          if (_content != null &&
+              _content!.words.isNotEmpty &&
+              _content!.audio != null &&
+              _audioError == null)
+            PopupMenuButton<WordHintMode>(
+              tooltip: 'Word hints',
+              onSelected: (mode) {
+                setState(() {
+                  _wordHintMode = mode;
+                  if (mode == WordHintMode.hebrewOnly) {
+                    _tappedWordIndex = null;
+                  }
+                });
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: WordHintMode.hebrewOnly,
+                  child: Row(
+                    children: [
+                      _WordHintIcon(mode: WordHintMode.hebrewOnly, size: 40),
+                      SizedBox(width: 12),
+                      Text('Hebrew Only'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: WordHintMode.translation,
+                  child: Row(
+                    children: [
+                      _WordHintIcon(mode: WordHintMode.translation, size: 40),
+                      SizedBox(width: 12),
+                      Text('Translation'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: WordHintMode.transliteration,
+                  child: Row(
+                    children: [
+                      _WordHintIcon(mode: WordHintMode.transliteration, size: 40),
+                      SizedBox(width: 12),
+                      Text('Transliteration'),
+                    ],
+                  ),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _WordHintIcon(mode: _wordHintMode, size: 28),
+              ),
+            ),
+          if (_content != null &&
+              _content!.audio != null &&
+              _audioError == null)
+            PopupMenuButton<PlaybackSpeed>(
+              tooltip: 'Playback speed',
+              initialValue: _playbackSpeed,
+              onSelected: _setPlaybackSpeed,
+              itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
+                final selected = speed == _playbackSpeed;
+                return PopupMenuItem<PlaybackSpeed>(
+                  value: speed,
+                  child: Row(
+                    children: [
+                      Icon(
+                        selected
+                            ? Icons.check_circle
+                            : Icons.circle_outlined,
+                        size: 20,
+                        color: selected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outline,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        speed.displayName,
+                        style: TextStyle(
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.speed_rounded,
+                  size: 22,
+                  color: Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
@@ -656,10 +773,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         final viewportHeight = constraints.maxHeight;
         final viewportWidth = constraints.maxWidth;
         final hasMeta = _hasRecordingMetadata(content);
-        final hasChips = content.words.isNotEmpty;
         final topSectionHeight =
-            120.0 +
-            (hasChips ? 44.0 : 0) +
+            60.0 +
             (_audioError != null ? 80.0 : 0) +
             (content.description != null && content.description!.isNotEmpty
                 ? 40.0
@@ -672,126 +787,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (content.words.isNotEmpty ||
-                  (content.audio != null && _audioError == null))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (content.words.isNotEmpty)
-                        PopupMenuButton<WordHintMode>(
-                          tooltip: 'Word hints',
-                          onSelected: (mode) {
-                            setState(() {
-                              _wordHintMode = mode;
-                              if (mode == WordHintMode.hebrewOnly) {
-                                _tappedWordIndex = null;
-                              }
-                            });
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: WordHintMode.hebrewOnly,
-                              child: Row(
-                                children: [
-                                  _WordHintIcon(
-                                    mode: WordHintMode.hebrewOnly,
-                                    size: 40,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Hebrew Only'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: WordHintMode.translation,
-                              child: Row(
-                                children: [
-                                  _WordHintIcon(
-                                    mode: WordHintMode.translation,
-                                    size: 40,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Translation'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: WordHintMode.transliteration,
-                              child: Row(
-                                children: [
-                                  _WordHintIcon(
-                                    mode: WordHintMode.transliteration,
-                                    size: 40,
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text('Transliteration'),
-                                ],
-                              ),
-                            ),
-                          ],
-                          child: _WordHintIcon(mode: _wordHintMode, size: 38),
-                        ),
-                      if (content.words.isNotEmpty &&
-                          content.audio != null &&
-                          _audioError == null)
-                        const SizedBox(width: 8),
-                      if (content.audio != null && _audioError == null)
-                        PopupMenuButton<PlaybackSpeed>(
-                          tooltip: 'Playback speed',
-                          initialValue: _playbackSpeed,
-                          onSelected: _setPlaybackSpeed,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              Icons.speed_rounded,
-                              size: 22,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSecondaryContainer,
-                            ),
-                          ),
-                          itemBuilder: (context) => PlaybackSpeed.values.map((
-                            speed,
-                          ) {
-                            final selected = speed == _playbackSpeed;
-                            return PopupMenuItem<PlaybackSpeed>(
-                              value: speed,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    selected
-                                        ? Icons.check_circle
-                                        : Icons.circle_outlined,
-                                    size: 20,
-                                    color: selected
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context).colorScheme.outline,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    speed.displayName,
-                                    style: TextStyle(
-                                      fontWeight: selected
-                                          ? FontWeight.w600
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
-                  ),
-                ),
               if (_audioError != null)
                 Material(
                   color: Theme.of(context).colorScheme.errorContainer,
@@ -829,11 +824,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   ),
                 ),
               if (_audioError != null) const SizedBox(height: 16),
-              Text(
-                content.titleHebrew,
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
               if (content.description != null &&
                   content.description!.isNotEmpty) ...[
                 const SizedBox(height: 8),
