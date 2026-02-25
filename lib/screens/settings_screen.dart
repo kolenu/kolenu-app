@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../config/cdn_config.dart';
+import '../data/playback_mode.dart';
 import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
+import '../services/loop_preference_service.dart';
 import 'playlist_screen.dart';
 import '../services/font_size_preference_service.dart';
 import '../services/orientation_preference_service.dart';
@@ -19,6 +21,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _lockPortrait = false;
   FontSizeOption _fontSize = FontSizeOption.medium;
+  PlaybackMode _playbackMode = PlaybackMode.playOnce;
 
   @override
   void initState() {
@@ -29,10 +32,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPreferences() async {
     final lock = await OrientationPreferenceService.getLockPortrait();
     final font = await FontSizePreferenceService.getOption();
+    final mode = await LoopPreferenceService.getPlaybackMode();
     if (mounted) {
       setState(() {
         _lockPortrait = lock;
         _fontSize = font;
+        _playbackMode = mode;
       });
     }
   }
@@ -114,6 +119,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     builder: (context) => const PlaylistScreen(),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              title: const Text('Playback mode'),
+              subtitle: Text(_playbackMode.label),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final chosen = await showModalBottomSheet<PlaybackMode>(
+                  context: context,
+                  builder: (ctx) {
+                    final t = Theme.of(ctx);
+                    final cs = t.colorScheme;
+                    return SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              'Playback mode',
+                              style: t.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          ...PlaybackMode.values.map((m) => ListTile(
+                            title: Text(m.label),
+                            trailing: _playbackMode == m
+                                ? Icon(Icons.check, color: cs.primary)
+                                : null,
+                            onTap: () => Navigator.pop(ctx, m),
+                          )),
+                        ],
+                      ),
+                    );
+                  },
+                );
+                if (chosen != null && mounted) {
+                  setState(() => _playbackMode = chosen);
+                  await LoopPreferenceService.setPlaybackMode(chosen);
+                }
               },
             ),
             ListTile(

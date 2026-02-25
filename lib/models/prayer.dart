@@ -29,16 +29,16 @@ String prayerCategoryDisplayName(String? category) {
 class PrayerListItem {
   const PrayerListItem({
     required this.id,
-    required this.title,
-    required this.titleHebrew,
+    this.title,
+    this.titleHebrew,
     this.category,
     this.recordings,
     this.difficulty,
   });
 
   final String id;
-  final String title;
-  final String titleHebrew;
+  final String? title;
+  final String? titleHebrew;
 
   /// Content filename; always "words.json" in prayer-first layout.
   String get file => 'words.json';
@@ -59,8 +59,8 @@ class PrayerListItem {
         : null;
     return PrayerListItem(
       id: json['id'] as String,
-      title: json['title'] as String,
-      titleHebrew: json['titleHebrew'] as String,
+      title: json['title_en'] as String?,
+      titleHebrew: json['title_he'] as String?,
       category: json['category'] as String?,
       recordings: list?.isEmpty == true ? null : list,
       difficulty: json['difficulty'] as String?,
@@ -130,6 +130,7 @@ class PrayerContent {
     required this.titleHebrew,
     this.description,
     required this.text,
+    this.lines,
     required this.sentences,
     this.sentenceEndWordIndices,
     required this.words,
@@ -147,6 +148,8 @@ class PrayerContent {
   final String titleHebrew;
   final String? description;
   final String text;
+  /// When present, display text line by line for readability.
+  final List<String>? lines;
   final List<String> sentences;
 
   /// 0-based index of last word of each sentence. E.g. [5, 11, 18] = sentence 0 ends at word 5.
@@ -234,6 +237,7 @@ class PrayerContent {
       titleHebrew: json['titleHebrew'] as String,
       description: json['description'] as String?,
       text: json['text'] as String,
+      lines: null,
       sentences:
           (json['sentences'] as List<dynamic>?)
               ?.map((e) => e as String)

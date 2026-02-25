@@ -99,7 +99,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     }
     if (!context.mounted) return;
     // ignore: use_build_context_synchronously - guarded by mounted check above
-    await _openReader(item, context);
+    await _openReader(item, context, playlistIds: ids, currentIndex: 0);
   }
 
   Future<void> _loadPrayers() async {
@@ -353,7 +353,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                   ),
                   child: Semantics(
                     label:
-                        '${item.title}, ${item.titleHebrew}. Double tap to open.',
+                        '${item.title ?? item.id.replaceAll('_', ' ')}, ${item.titleHebrew ?? ''}. Double tap to open.',
                     button: true,
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
@@ -375,7 +375,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                         ),
                       ),
                       title: Text(
-                        item.title,
+                        item.title ?? item.id.replaceAll('_', ' '),
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurfaceVariant,
@@ -384,7 +384,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          item.titleHebrew,
+                          item.titleHebrew ?? '',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurface,
                           ),
@@ -454,8 +454,10 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
 
   Future<void> _openReader(
     PrayerListItem item,
-    BuildContext tileContext,
-  ) async {
+    BuildContext tileContext, {
+    List<String>? playlistIds,
+    int currentIndex = 0,
+  }) async {
     String? songFolderId;
     String prayerFile = '${item.id}/${item.file}';
 
@@ -518,21 +520,39 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           item,
           songFolderId,
           prayerFile,
+          playlistIds: playlistIds,
+          currentIndex: currentIndex,
         );
         if (!success) return;
       } else {
-        _openReaderWithRecording(item, songFolderId, prayerFile, songFolderId);
+        _openReaderWithRecording(
+          item,
+          songFolderId,
+          prayerFile,
+          songFolderId,
+          playlistIds,
+          currentIndex,
+        );
       }
     } else {
-      _openReaderWithRecording(item, songFolderId, prayerFile, null);
+      _openReaderWithRecording(
+        item,
+        songFolderId,
+        prayerFile,
+        null,
+        playlistIds,
+        currentIndex,
+      );
     }
   }
 
   Future<bool> _downloadAndOpenReader(
     PrayerListItem item,
     String songFolderId,
-    String prayerFile,
-  ) async {
+    String prayerFile, {
+    List<String>? playlistIds,
+    int currentIndex = 0,
+  }) async {
     final success = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -540,7 +560,14 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     );
     if (!mounted) return false;
     if (success == true) {
-      _openReaderWithRecording(item, songFolderId, prayerFile, songFolderId);
+      _openReaderWithRecording(
+        item,
+        songFolderId,
+        prayerFile,
+        songFolderId,
+        playlistIds,
+        currentIndex,
+      );
       return true;
     }
     return false;
@@ -559,8 +586,8 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         final meta = await PrayerService.loadRecordingMetadata(
           v.id,
           id: item.id,
-          title: item.title,
-          titleHebrew: item.titleHebrew,
+          title: item.title ?? item.id.replaceAll('_', ' '),
+          titleHebrew: item.titleHebrew ?? '',
         );
         metadataMap[v.id] = meta;
         cachedMap[v.id] = await SongDownloadService.isSongDownloaded(v.id);
@@ -660,6 +687,8 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     String? selectedRecordingId,
     String prayerFile, [
     String? localSongFolderId,
+    List<String>? playlistIds,
+    int currentPlaylistIndex = 0,
   ]) {
     if (selectedRecordingId != null) {
       LastPlayedService.setLastPlayedRecording(item.id, selectedRecordingId);
@@ -670,21 +699,37 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     ProgressService.recordOpenDate(dateStr);
     ProgressService.markPrayerCompleted(item.id);
     Navigator.of(context)
-        .push(
-          MaterialPageRoute<void>(
+        .push<Map<String, dynamic>>(
+          MaterialPageRoute<Map<String, dynamic>>(
             builder: (context) => PrayerReaderScreen(
               prayerId: item.id,
               prayerFile: prayerFile,
-              title: item.title,
-              titleHebrew: item.titleHebrew,
+              title: item.title ?? item.id.replaceAll('_', ' '),
+              titleHebrew: item.titleHebrew ?? '',
               selectedRecordingId: selectedRecordingId,
               difficulty: item.difficulty,
               localSongFolderId: localSongFolderId,
+              playlistIds: playlistIds,
+              currentPlaylistIndex: currentPlaylistIndex,
             ),
           ),
         )
-        .then((_) {
+        .then((result) {
           if (mounted) _loadPrayers();
+          if (result != null &&
+              result['play_next'] != null &&
+              result['playlist_ids'] != null) {
+            final nextId = result['play_next'] as String;
+            final ids = result['playlist_ids'] as List<String>;
+            final nextIndex = ids.indexOf(nextId);
+            if (nextIndex >= 0) {
+              final found = _prayers.where((p) => p.id == nextId);
+              final nextItem = found.isEmpty ? null : found.first;
+              if (nextItem != null && mounted) {
+                _openReader(nextItem, context, playlistIds: ids, currentIndex: nextIndex);
+              }
+            }
+          }
         });
   }
 }

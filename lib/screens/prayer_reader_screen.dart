@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../data/playback_mode.dart';
 import '../data/playback_speed.dart';
 import '../models/prayer.dart';
 import '../services/audio_decryption_service.dart';
@@ -78,6 +79,8 @@ class PrayerReaderScreen extends StatefulWidget {
     this.selectedRecordingId,
     this.difficulty,
     this.localSongFolderId,
+    this.playlistIds,
+    this.currentPlaylistIndex = 0,
   });
 
   final String prayerId;
@@ -93,6 +96,12 @@ class PrayerReaderScreen extends StatefulWidget {
 
   /// When set, load content and audio from local Songs/ folder (cloud download).
   final String? localSongFolderId;
+
+  /// When set, we're playing from a playlist; used for loop-playlist mode.
+  final List<String>? playlistIds;
+
+  /// Index of current prayer in [playlistIds].
+  final int currentPlaylistIndex;
 
   @override
   State<PrayerReaderScreen> createState() => _PrayerReaderScreenState();
@@ -114,8 +123,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   WordHintMode _wordHintMode = WordHintMode.hebrewOnly;
   int? _tappedWordIndex;
   PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
-  bool _loopOne = false;
+  PlaybackMode _playbackMode = PlaybackMode.playOnce;
   bool _playButtonPressed = false;
+  StreamSubscription<PlayerState>? _playerStateSub;
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -190,15 +200,16 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   }
 
   Future<void> _loadLoopPreference() async {
-    final loop = await LoopPreferenceService.getLoopOne();
+    final mode = await LoopPreferenceService.getPlaybackMode();
     if (mounted) {
-      setState(() => _loopOne = loop);
+      setState(() => _playbackMode = mode);
     }
   }
 
   @override
   void dispose() {
     _positionSub?.cancel();
+    _playerStateSub?.cancel();
     _player.dispose();
     // Clean up temporary decrypted audio file
     if (_currentAudioFile != null) {
@@ -304,7 +315,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
 
   Future<void> _setupPlayerAndSync() async {
     await _player.setSpeed(_playbackSpeed.rate);
-    await _player.setLoopMode(_loopOne ? LoopMode.one : LoopMode.off);
+    final loopOne = _playbackMode == PlaybackMode.loopOne;
+    await _player.setLoopMode(loopOne ? LoopMode.one : LoopMode.off);
     final offset = _content?.audioOffsetSeconds ?? 0;
     if (offset > 0) {
       await _player.seek(Duration(milliseconds: (offset * 1000).round()));
@@ -317,7 +329,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       sec = (sec - offset).clamp(0.0, double.infinity);
       final duration = content != null ? _contentDurationSeconds(content) : 0.0;
       if (duration > 0) {
-        if (_loopOne) {
+        if (_playbackMode == PlaybackMode.loopOne) {
           sec = sec % duration;
         } else if (sec > duration) {
           sec = duration;
@@ -325,7 +337,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
       }
       final secForSync = sec;
       final newIndex = _wordIndexAtPosition(secForSync);
-      if (_currentWordIndex == (content?.words.length ?? 0) - 1 &&
+      // In play-once mode, stay on last word when past end. In loop-one, allow
+      // pointer to jump back when audio restarts.
+      if (_playbackMode != PlaybackMode.loopOne &&
+          _currentWordIndex == (content?.words.length ?? 0) - 1 &&
           newIndex < _currentWordIndex) {
         return;
       }
@@ -344,8 +359,30 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
         }
       }
     });
+    await _playerStateSub?.cancel();
+    _playerStateSub = _player.playerStateStream.listen((state) async {
+      if (!mounted) return;
+      if (state.processingState == ProcessingState.completed) {
+        if (_playbackMode == PlaybackMode.loopPlaylist &&
+            widget.playlistIds != null &&
+            widget.playlistIds!.length > 1) {
+          _advanceToNextInPlaylist();
+        } else if (_playbackMode == PlaybackMode.playOnce) {
+          await _player.stop();
+          if (mounted) setState(() {});
+        }
+      }
+    });
     await _player.play();
     if (mounted) setState(() {});
+  }
+
+  void _advanceToNextInPlaylist() {
+    final ids = widget.playlistIds;
+    if (ids == null || ids.isEmpty) return;
+    final nextIndex = (widget.currentPlaylistIndex + 1) % ids.length;
+    final nextId = ids[nextIndex];
+    Navigator.of(context).pop({'play_next': nextId, 'playlist_ids': ids});
   }
 
   /// Small lead (seconds) so highlight appears slightly before word is heard.
@@ -452,7 +489,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    widget.title,
+                    _content?.title ?? widget.title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -460,7 +497,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                   Directionality(
                     textDirection: TextDirection.rtl,
                     child: Text(
-                      widget.titleHebrew,
+                      _content?.titleHebrew ?? widget.titleHebrew,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -707,6 +744,85 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
                     ),
                   ),
                 if (hasAudio) const SizedBox(width: 12),
+                if (hasAudio)
+                  Semantics(
+                    label: 'Playback mode: ${_playbackMode.label}',
+                    button: true,
+                    child: IconButton(
+                      icon: Icon(
+                        _playbackMode == PlaybackMode.loopOne
+                            ? Icons.repeat_one_rounded
+                            : _playbackMode == PlaybackMode.loopPlaylist
+                                ? Icons.repeat_rounded
+                                : Icons.replay_rounded,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () async {
+                        final chosen = await showModalBottomSheet<PlaybackMode>(
+                          context: context,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    'Playback mode',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ),
+                                ...PlaybackMode.values.map((m) => ListTile(
+                                  title: Text(m.label),
+                                  trailing: _playbackMode == m
+                                      ? Icon(
+                                          Icons.check,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                        )
+                                      : null,
+                                  onTap: () => Navigator.pop(ctx, m),
+                                )),
+                              ],
+                            ),
+                          ),
+                        );
+                        if (chosen != null && mounted) {
+                          setState(() => _playbackMode = chosen);
+                          await LoopPreferenceService.setPlaybackMode(chosen);
+                          await _player.setLoopMode(
+                            chosen == PlaybackMode.loopOne
+                                ? LoopMode.one
+                                : LoopMode.off,
+                          );
+                          await _playerStateSub?.cancel();
+                          _playerStateSub = _player.playerStateStream.listen(
+                            (state) async {
+                              if (!mounted) return;
+                              if (state.processingState ==
+                                  ProcessingState.completed) {
+                                if (_playbackMode == PlaybackMode.loopPlaylist &&
+                                    widget.playlistIds != null &&
+                                    widget.playlistIds!.length > 1) {
+                                  _advanceToNextInPlaylist();
+                                } else if (_playbackMode ==
+                                    PlaybackMode.playOnce) {
+                                  await _player.stop();
+                                  if (mounted) setState(() {});
+                                }
+                              }
+                            },
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                if (hasAudio) const SizedBox(width: 12),
                 Semantics(
                   label: canNext ? 'Next page' : 'Next page (disabled)',
                   button: true,
@@ -885,22 +1001,54 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
   Widget _buildWordByWord(PrayerContent content) {
     final words = content.words;
     if (words.isEmpty) {
+      final lines = content.lines;
+      if (lines != null && lines.isNotEmpty) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < lines.length; i++) ...[
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i == 0 ? 32 : 20,
+                  top: i == 0 ? 0 : 4,
+                ),
+                child: Text(
+                  lines[i],
+                  textDirection: TextDirection.rtl,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    height: 2.2,
+                    fontSize: i == 0 ? 28 : 24,
+                    fontWeight: i == 0 ? FontWeight.bold : FontWeight.normal,
+                    color: i == 0
+                        ? Theme.of(context).colorScheme.onSurface
+                        : Theme.of(context).colorScheme.onSurface.withValues(
+                            alpha: 0.9,
+                          ),
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            ],
+          ],
+        );
+      }
       return Text(
         content.text,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           height: 1.8,
           fontSize: 22, // Scaled by MediaQuery.textScaler for accessibility
         ),
-        textAlign: TextAlign.center,
+        textAlign: TextAlign.right,
       );
     }
     final start = _startWordIndexForPage(content, _currentPage);
     final end = _endWordIndexForPage(content, _currentPage);
 
     return Wrap(
-      alignment: WrapAlignment.center,
-      runAlignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
+      alignment: WrapAlignment.start,
+      runAlignment: WrapAlignment.start,
+      crossAxisAlignment: WrapCrossAlignment.start,
       children: [
         for (var i = start; i <= end && i < words.length; i++)
           _buildWordChip(words[i], i),
@@ -925,7 +1073,16 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen> {
             if (!_player.playing) {
               await _player.play();
             }
-            // Don't toggle tappedWordIndex - let currentWordIndex from audio position handle highlighting
+            // Update pointer immediately so it shows without waiting for position stream
+            if (mounted && _content != null) {
+              setState(() {
+                _currentWordIndex = i;
+                if (_content!.sentences.isNotEmpty) {
+                  final sentence = _sentenceIndexForWord(_content!, i);
+                  _currentPage = sentence ~/ _sentencesPerPage;
+                }
+              });
+            }
           } else {
             // No audio, just toggle translation display
             setState(() {

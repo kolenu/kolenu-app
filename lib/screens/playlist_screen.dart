@@ -134,7 +134,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                       final id = _playlist[index];
                       final found = _allPrayers.where((p) => p.id == id);
                       final item = found.isEmpty ? null : found.first;
-                      final title = item?.title ?? id;
+                      final title = item?.title ?? id.replaceAll('_', ' ');
                       return Card(
                         key: ValueKey(id),
                         margin: const EdgeInsets.only(bottom: 8),
@@ -171,7 +171,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                   padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
                     avatar: const Icon(Icons.add, size: 18),
-                    label: Text(p.title),
+                    label: Text(p.title ?? p.id.replaceAll('_', ' ')),
                     onPressed: () => _addToPlaylist(p.id),
                   ),
                 );

@@ -1,18 +1,40 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String _keyLoopOne = 'loop_one';
+import '../data/playback_mode.dart';
 
-/// Persists whether to loop the current prayer audio (single-prayer loop).
+const String _keyLoopOne = 'loop_one';
+const String _keyPlaybackMode = 'playback_mode';
+
+/// Persists playback mode and legacy loop-one preference.
 class LoopPreferenceService {
   LoopPreferenceService._();
 
-  static Future<bool> getLoopOne() async {
+  static Future<PlaybackMode> getPlaybackMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyLoopOne) ?? false;
+    final raw = prefs.getString(_keyPlaybackMode);
+    if (raw != null) {
+      for (final m in PlaybackMode.values) {
+        if (m.name == raw) return m;
+      }
+    }
+    return prefs.getBool(_keyLoopOne) == true
+        ? PlaybackMode.loopOne
+        : PlaybackMode.playOnce;
+  }
+
+  static Future<void> setPlaybackMode(PlaybackMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPlaybackMode, mode.name);
+  }
+
+  /// Legacy: true if loop current audio.
+  static Future<bool> getLoopOne() async {
+    return (await getPlaybackMode()) == PlaybackMode.loopOne;
   }
 
   static Future<void> setLoopOne(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyLoopOne, value);
+    await setPlaybackMode(
+      value ? PlaybackMode.loopOne : PlaybackMode.playOnce,
+    );
   }
 }

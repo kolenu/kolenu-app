@@ -201,7 +201,7 @@ class CloudIndexService {
   }
 
   /// Parse JSON into PrayerIndex. Supports:
-  /// - Cloud format: { "songs": [{ "id", "title", "category", ... }] }
+  /// - Cloud format: { "songs": [{ "id", "title_en", "title_he", "category", ... }] }
   /// - Legacy format: { "prayers": [...], "versions": [...] }
   static PrayerIndex? _parseIndex(Map<String, dynamic> json) {
     final songs = json['songs'] as List<dynamic>?;
@@ -230,14 +230,12 @@ class CloudIndexService {
       if (songId == null || songId.isEmpty) continue;
 
       final folderPath = '$category/$songId';
-      final title = s['title'] as String? ?? songId;
-      final titleHebrew = s['titleHebrew'] as String? ?? '';
 
       prayerItems.add(
         PrayerListItem(
           id: folderPath,
-          title: title,
-          titleHebrew: titleHebrew,
+          title: s['title_en'] as String?,
+          titleHebrew: s['title_he'] as String?,
           category: category,
           recordings: null,
           difficulty: s['difficulty'] as String?,

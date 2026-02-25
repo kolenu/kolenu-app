@@ -54,6 +54,7 @@ class PrayerService {
   /// Load full content for one prayer by its path (e.g. shema/ben_mitz_1_v2/words.json).
   /// When [id], [title], [titleHebrew] are provided and the file is a JSON array (words-only),
   /// builds PrayerContent from that list; otherwise expects a full PrayerContent object.
+  /// When text.json exists in the same folder with "lines", merges for line-by-line display.
   static Future<PrayerContent> loadPrayerContent(
     String file, {
     String? id,
@@ -63,18 +64,70 @@ class PrayerService {
     final path = '$_prayersAssetPath/$file';
     final jsonStr = await rootBundle.loadString(path);
     final decoded = jsonDecode(jsonStr);
+    PrayerContent content;
     if (decoded is List<dynamic>) {
-      return PrayerContent.fromWordsList(
+      content = PrayerContent.fromWordsList(
         decoded,
         id: id ?? 'prayer',
         title: title ?? 'Prayer',
         titleHebrew: titleHebrew ?? '',
       );
-    }
-    if (decoded is! Map<String, dynamic>) {
+    } else if (decoded is Map<String, dynamic>) {
+      content = PrayerContent.fromJson(decoded);
+    } else {
       throw FormatException('Prayer JSON must be object or array', path);
     }
-    return PrayerContent.fromJson(decoded);
+    // Merge title_en, title_he, and lines from text.json when available
+    final dir = file.contains('/') ? file.substring(0, file.lastIndexOf('/')) : '';
+    if (dir.isNotEmpty) {
+      try {
+        final textStr = await rootBundle.loadString('$_prayersAssetPath/$dir/text.json');
+        final textJson = jsonDecode(textStr);
+        if (textJson is Map<String, dynamic>) {
+          var title = content.title;
+          var titleHebrew = content.titleHebrew;
+          final titleEn = (textJson['title_en'] as String?)?.trim();
+          final titleHe = (textJson['title_he'] as String?)?.trim();
+          if (titleEn != null && titleEn.isNotEmpty) title = titleEn;
+          if (titleHe != null && titleHe.isNotEmpty) titleHebrew = titleHe;
+
+          final linesRaw = textJson['lines'] as List<dynamic>?;
+          List<String>? lines;
+          if (linesRaw != null && linesRaw.isNotEmpty) {
+            lines = linesRaw
+                .map((e) => e.toString().trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+
+          if (title != content.title ||
+              titleHebrew != content.titleHebrew ||
+              (lines != null && lines.isNotEmpty)) {
+            content = PrayerContent(
+              id: content.id,
+              title: title,
+              titleHebrew: titleHebrew,
+              description: content.description,
+              text: content.text,
+              lines: lines?.isNotEmpty == true ? lines : null,
+                sentences: content.sentences,
+                sentenceEndWordIndices: content.sentenceEndWordIndices,
+                words: content.words,
+                audio: content.audio,
+                recordings: content.recordings,
+                audioOffsetSeconds: content.audioOffsetSeconds,
+                performerName: content.performerName,
+                audioLicense: content.audioLicense,
+                textLicense: content.textLicense,
+                attribution: content.attribution,
+              );
+          }
+        }
+      } catch (_) {
+        // text.json not found or invalid — ignore
+      }
+    }
+    return content;
   }
 
   /// Try to load content for a prayer from a recording's folder.
@@ -94,10 +147,11 @@ class PrayerService {
 
   /// Load prayer content from a locally downloaded song folder.
   /// [songFolderId] is e.g. 'shema/ben_mitz_1_v2'.
+  /// When text.json exists with "lines", merges lines for line-by-line display.
   static Future<PrayerContent> loadPrayerContentFromLocal(
     String songFolderId, {
     required String id,
-    required String title,
+    String title = '',
     String titleHebrew = '',
   }) async {
     final basePath = await SongDownloadService.getSongPath(songFolderId);
@@ -109,18 +163,70 @@ class PrayerService {
     final jsonStr = await wordsFile.readAsString();
     final decoded = jsonDecode(jsonStr);
 
+    PrayerContent content;
     if (decoded is List<dynamic>) {
-      return PrayerContent.fromWordsList(
+      content = PrayerContent.fromWordsList(
         decoded,
         id: id,
-        title: title,
+        title: title.isNotEmpty ? title : id.replaceAll('_', ' '),
         titleHebrew: titleHebrew,
       );
+    } else if (decoded is Map<String, dynamic>) {
+      content = PrayerContent.fromJson(decoded);
+    } else {
+      throw FormatException('words.json must be array or object', basePath);
     }
-    if (decoded is Map<String, dynamic>) {
-      return PrayerContent.fromJson(decoded);
+
+    // Merge title_en, title_he, and lines from text.json when available
+    final textFile = File('$basePath/text.json');
+    if (await textFile.exists()) {
+      try {
+        final textJson = jsonDecode(await textFile.readAsString());
+        if (textJson is Map<String, dynamic>) {
+          var title = content.title;
+          var titleHebrew = content.titleHebrew;
+          final titleEn = (textJson['title_en'] as String?)?.trim();
+          final titleHe = (textJson['title_he'] as String?)?.trim();
+          if (titleEn != null && titleEn.isNotEmpty) title = titleEn;
+          if (titleHe != null && titleHe.isNotEmpty) titleHebrew = titleHe;
+
+          final linesRaw = textJson['lines'] as List<dynamic>?;
+          List<String>? lines;
+          if (linesRaw != null && linesRaw.isNotEmpty) {
+            lines = linesRaw
+                .map((e) => e.toString().trim())
+                .where((s) => s.isNotEmpty)
+                .toList();
+          }
+
+          if (title != content.title ||
+              titleHebrew != content.titleHebrew ||
+              (lines != null && lines.isNotEmpty)) {
+            content = PrayerContent(
+              id: content.id,
+              title: title,
+              titleHebrew: titleHebrew,
+              description: content.description,
+              text: content.text,
+              lines: lines?.isNotEmpty == true ? lines : null,
+                sentences: content.sentences,
+                sentenceEndWordIndices: content.sentenceEndWordIndices,
+                words: content.words,
+                audio: content.audio,
+                recordings: content.recordings,
+                audioOffsetSeconds: content.audioOffsetSeconds,
+                performerName: content.performerName,
+                audioLicense: content.audioLicense,
+                textLicense: content.textLicense,
+                attribution: content.attribution,
+              );
+          }
+        }
+      } catch (_) {
+        // Ignore text.json parse errors
+      }
     }
-    throw FormatException('words.json must be array or object', basePath);
+    return content;
   }
 
   /// Load metadata line for a recording (performer, license, attribution).

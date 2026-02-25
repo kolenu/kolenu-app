@@ -6,8 +6,8 @@ void main() {
     test('fromJson parses required fields', () {
       final json = {
         'id': 'shema',
-        'title': 'Shema',
-        'titleHebrew': 'שְׁמַע יִשְׂרָאֵל',
+        'title_en': 'Shema',
+        'title_he': 'שְׁמַע יִשְׂרָאֵל',
         'difficulty': 'L1',
       };
       final item = PrayerListItem.fromJson(json);
@@ -19,6 +19,17 @@ void main() {
         'words.json',
       ); // prayer-first layout always uses words.json
       expect(item.difficulty, 'L1');
+    });
+
+    test('fromJson accepts optional title_en and title_he', () {
+      final json = {
+        'id': 'shema',
+        'category': 'daily',
+      };
+      final item = PrayerListItem.fromJson(json);
+      expect(item.id, 'shema');
+      expect(item.title, isNull);
+      expect(item.titleHebrew, isNull);
     });
   });
 
@@ -75,6 +86,7 @@ void main() {
         title: 'X',
         titleHebrew: 'x',
         text: 'x',
+        lines: null,
         sentences: ['a', 'b', 'c'],
         sentenceEndWordIndices: [5, 11, 18],
         words: List.generate(
@@ -95,6 +107,7 @@ void main() {
         title: 'X',
         titleHebrew: 'x',
         text: 'x',
+        lines: null,
         sentences: ['a', 'b'],
         sentenceEndWordIndices: null,
         words: List.generate(
