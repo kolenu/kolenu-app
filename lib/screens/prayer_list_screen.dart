@@ -23,12 +23,28 @@ class PrayerListScreen extends StatefulWidget {
 }
 
 class _PrayerListScreenState extends State<PrayerListScreen> {
+  static const Color _deepGreen = Color(0xFF1B5E20);
+  static const Color _primaryGreen = Color(0xFF2E7D32);
+  static const Color _iconTintGreen = Color(0xFFE8F5E9);
+
   List<PrayerListItem> _prayers = [];
   List<RecordingOption>? _indexRecordings;
   bool _useCloudIndex = false;
   bool _loading = true;
   String? _error;
   String _loadingMessage = 'Connecting to the cloud...';
+  bool _hasMarkedChipShown = false;
+
+  Future<({String? prayerId, String date, bool hasShownChip})>
+      _loadLastPracticedForDisplay() async {
+    final practiced = await ProgressService.getLastPracticed();
+    final hasShown = await ProgressService.hasShownLastPracticedChip();
+    return (
+      prayerId: practiced.prayerId,
+      date: practiced.date,
+      hasShownChip: hasShown,
+    );
+  }
 
   @override
   void initState() {
@@ -171,10 +187,28 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         centerTitle: true,
-        title: const Text('Kolenu'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.menu_book_rounded,
+              size: 28,
+              color: _deepGreen,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Kolenu',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 28,
+                fontWeight: FontWeight.w600,
+                color: _deepGreen,
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined),
+            icon: const Icon(Icons.settings_outlined, color: _primaryGreen),
             tooltip: 'Settings',
             onPressed: () async {
               final result = await Navigator.of(context).push<Object?>(
@@ -260,9 +294,69 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       return const Center(child: Text('No prayers yet.'));
     }
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-      children: _buildGroupedPrayerTiles(theme),
+    return FutureBuilder<({String? prayerId, String date, bool hasShownChip})>(
+      future: _loadLastPracticedForDisplay(),
+      builder: (context, snap) {
+        final data = snap.data ??
+            (prayerId: null, date: '', hasShownChip: true);
+        final lastPracticed = (prayerId: data.prayerId, date: data.date);
+        final title = lastPracticed.prayerId != null
+            ? (_prayers
+                    .where((p) => p.id == lastPracticed.prayerId)
+                    .map((p) => p.title ?? p.id.replaceAll('_', ' '))
+                    .firstOrNull ??
+                lastPracticed.prayerId!.replaceAll('_', ' '))
+            : null;
+        final showChip = title != null &&
+            lastPracticed.date.isNotEmpty &&
+            !data.hasShownChip;
+        if (showChip && !_hasMarkedChipShown) {
+          _hasMarkedChipShown = true;
+          ProgressService.markLastPracticedChipShown();
+        }
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          children: [
+            if (showChip)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildLastPracticedChip(
+                  theme,
+                  title,
+                  ProgressService.formatRelativeDate(lastPracticed.date),
+                ),
+              ),
+            ..._buildGroupedPrayerTiles(theme),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildLastPracticedChip(
+    ThemeData theme,
+    String prayerTitle,
+    String relativeDate,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _iconTintGreen.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _primaryGreen.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        'Last practiced: $prayerTitle · $relativeDate',
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: _deepGreen,
+          fontWeight: FontWeight.w600,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 
@@ -312,144 +406,187 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
       final category = entry.key;
       final prayers = entry.value;
       return Padding(
-        padding: const EdgeInsets.only(bottom: 28),
+        padding: const EdgeInsets.only(bottom: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 20),
-              child: Text(
-                prayerCategoryDisplayName(category).toUpperCase(),
-                style: theme.textTheme.labelMedium?.copyWith(
-                  letterSpacing: 1.5,
-                  color: Colors.green.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            ...prayers.map((item) {
-          final recordingIds = _useCloudIndex
-              ? (item.recordings != null && item.recordings!.isNotEmpty
-                    ? item.recordings!
-                    : [item.id])
-              : <String>[];
-          final hasRecordings = recordingIds.isNotEmpty;
-          return Builder(
-            builder: (tileContext) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 2),
-                        color: Colors.black.withValues(alpha: 0.04),
-                      ),
-                    ],
-                  ),
-                  child: Semantics(
-                    label:
-                        '${item.title ?? item.id.replaceAll('_', ' ')}, ${item.titleHebrew ?? ''}. Double tap to open.',
-                    button: true,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 18,
-                      ),
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer
-                              .withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.menu_book_rounded,
-                          color: theme.colorScheme.onPrimaryContainer,
-                          size: 24,
-                        ),
-                      ),
-                      title: Text(
-                        item.title ?? item.id.replaceAll('_', ' '),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          item.titleHebrew ?? '',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      trailing: hasRecordings
-                          ? FutureBuilder<int>(
-                              future: _countCachedRecordings(recordingIds),
-                              builder: (ctx, snap) {
-                                final cached = snap.data ?? 0;
-                                final total = recordingIds.length;
-                                final anyCached = cached > 0;
-                                return Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (anyCached)
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 4),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.offline_pin_rounded,
-                                              size: 18,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                            if (total > 1) ...[
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                '$cached/$total',
-                                                style: theme.textTheme.labelSmall
-                                                    ?.copyWith(
-                                                      color:
-                                                          theme.colorScheme.primary,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ],
-                                );
-                              },
-                            )
-                          : Icon(
-                              Icons.chevron_right_rounded,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                      onTap: () => _openReader(item, tileContext),
+              padding: const EdgeInsets.only(left: 0, bottom: 8),
+              child: Row(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 2,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: _primaryGreen,
+                      borderRadius: BorderRadius.circular(1),
                     ),
                   ),
-                ),
-              );
-            },
-          );
-        }),
+                  Text(
+                    prayerCategoryDisplayName(category).toUpperCase(),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      letterSpacing: 0.12,
+                      color: _primaryGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Column(
+                children: [
+                  for (var idx = 0; idx < prayers.length; idx++) ...[
+                    _buildPrayerRow(theme, prayers[idx],
+                        showDivider: idx < prayers.length - 1),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
       );
     }).toList();
+  }
+
+  Widget _buildPrayerRow(ThemeData theme, PrayerListItem item,
+      {required bool showDivider}) {
+    final recordingIds = _useCloudIndex
+        ? (item.recordings != null && item.recordings!.isNotEmpty
+            ? item.recordings!
+            : [item.id])
+        : <String>[];
+    final hasRecordings = recordingIds.isNotEmpty;
+    return Builder(
+      builder: (tileContext) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              label:
+                  '${item.title ?? item.id.replaceAll('_', ' ')}, ${item.titleHebrew ?? ''}. Double tap to open.',
+              button: true,
+              child: InkWell(
+                onTap: () => _openReader(item, tileContext),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: _iconTintGreen,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.menu_book_rounded,
+                          color: _primaryGreen,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title ?? item.id.replaceAll('_', ' '),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            if (item.titleHebrew != null &&
+                                item.titleHebrew!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  item.titleHebrew!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontSize: 13,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (hasRecordings)
+                        FutureBuilder<int>(
+                          future: _countCachedRecordings(recordingIds),
+                          builder: (ctx, snap) {
+                            final cached = snap.data ?? 0;
+                            final total = recordingIds.length;
+                            final anyCached = cached > 0;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (anyCached)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.offline_pin_rounded,
+                                          size: 18,
+                                          color: _primaryGreen,
+                                        ),
+                                        if (total > 1) ...[
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            '$cached/$total',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color: _primaryGreen,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ],
+                            );
+                          },
+                        )
+                      else
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (showDivider)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                indent: 80,
+                endIndent: 16,
+              ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _openReader(
@@ -698,6 +835,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     ProgressService.recordOpenDate(dateStr);
     ProgressService.markPrayerCompleted(item.id);
+    ProgressService.setLastPracticed(item.id);
     Navigator.of(context)
         .push<Map<String, dynamic>>(
           MaterialPageRoute<Map<String, dynamic>>(
