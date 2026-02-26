@@ -32,7 +32,7 @@ We respect intellectual property. If you believe your work is used without permi
 
 **To report an IP violation:**
 
-* **Email:** info@digimint.ca
+* **Email:** info@kolenu.net
 * **Subject:** IP Violation Report
 
 Please include:

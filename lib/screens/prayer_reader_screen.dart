@@ -9,6 +9,7 @@ import '../data/playback_speed.dart';
 import '../models/prayer.dart';
 import '../services/audio_decryption_service.dart';
 import '../services/loop_preference_service.dart';
+import '../services/text_alignment_preference_service.dart';
 import '../services/playback_speed_preference_service.dart';
 import '../services/prayer_service.dart';
 import '../services/song_download_service.dart';
@@ -1068,15 +1069,21 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       minHeight: minTextHeight,
                       maxWidth: viewportWidth - padding * 2 - 48,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: viewportWidth - padding * 2 - 48,
-                        ),
-                        child: _buildWordByWord(content),
-                      ),
+                    child: ValueListenableBuilder<TextAlignmentOption>(
+                      valueListenable:
+                          TextAlignmentPreferenceService.optionNotifier,
+                      builder: (context, alignment, _) {
+                        return FittedBox(
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: viewportWidth - padding * 2 - 48,
+                            ),
+                            child: _buildWordByWord(content, alignment),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1088,7 +1095,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     );
   }
 
-  Widget _buildWordByWord(PrayerContent content) {
+  Widget _buildWordByWord(
+    PrayerContent content,
+    TextAlignmentOption alignment,
+  ) {
+    final textAlign = alignment.textAlign;
+    final wrapAlign = alignment == TextAlignmentOption.right
+        ? WrapAlignment.end
+        : WrapAlignment.center;
     final words = content.words;
     if (words.isEmpty) {
       final lines = content.lines;
@@ -1117,7 +1131,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                             alpha: 0.9,
                           ),
                   ),
-                  textAlign: TextAlign.center,
+                  textAlign: textAlign,
                 ),
               ),
             ],
@@ -1126,20 +1140,21 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       }
       return Text(
         content.text,
+        textDirection: TextDirection.rtl,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           height: 1.8,
           fontSize: 24,
           letterSpacing: 0.02,
         ),
-        textAlign: TextAlign.center,
+        textAlign: textAlign,
       );
     }
     final start = _startWordIndexForPage(content, _currentPage);
     final end = _endWordIndexForPage(content, _currentPage);
 
     return Wrap(
-      alignment: WrapAlignment.center,
-      runAlignment: WrapAlignment.center,
+      alignment: wrapAlign,
+      runAlignment: wrapAlign,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (var i = start; i <= end && i < words.length; i++)

@@ -7,6 +7,7 @@ import 'screens/welcome_screen.dart';
 import 'services/cache_keys_service.dart';
 import 'services/font_size_preference_service.dart';
 import 'services/orientation_preference_service.dart';
+import 'services/text_alignment_preference_service.dart';
 import 'services/song_download_service.dart';
 import 'services/terms_agreement_service.dart';
 import 'services/theme_preference_service.dart';
@@ -22,6 +23,8 @@ void main() async {
   final initialVariant = await ThemePreferenceService.getVariant();
   FontSizePreferenceService.optionNotifier.value =
       await FontSizePreferenceService.getOption();
+  TextAlignmentPreferenceService.optionNotifier.value =
+      await TextAlignmentPreferenceService.getOption();
   final hasAgreedTerms = await TermsAgreementService.hasAgreed();
   TermsAgreementService.agreedNotifier.value = hasAgreedTerms;
   runApp(

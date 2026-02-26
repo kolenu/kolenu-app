@@ -9,7 +9,7 @@ class LegalDocumentsScreen extends StatelessWidget {
   Future<void> _sendIPViolationReport() async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
-      path: 'info@digimint.ca',
+      path: 'info@kolenu.net',
       query: 'subject=IP Violation Report',
     );
     if (await canLaunchUrl(emailUri)) {

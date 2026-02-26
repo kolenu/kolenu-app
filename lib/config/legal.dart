@@ -12,7 +12,7 @@ class LegalText {
       'All original audio recordings and the "Kolenu" brand name are Copyright © 2026 DigiMint Inc. All Rights Reserved.\n\n'
       'REPORTING IP VIOLATIONS:\n'
       'We respect intellectual property rights. If you believe your work is used without permission in this app, please report it immediately.\n\n'
-      'Email: info@digimint.ca\n'
+      'Email: info@kolenu.net\n'
       'Subject: IP Violation Report\n\n'
       'Please include:\n'
       '• Clear description of the content you believe is infringing\n'
@@ -55,7 +55,7 @@ class LegalText {
       '8. CHANGES TO TERMS\n'
       'We may update these Terms from time to time. Continued use of the App after updated Terms are posted constitutes your acceptance of the revised Terms.\n\n'
       '9. CONTACT\n'
-      'For questions about these Terms, contact: info@digimint.ca';
+      'For questions about these Terms, contact: info@kolenu.net';
 
   static const String importantNoticeTitle = 'Important Notice';
   static const String importantNoticeContent =

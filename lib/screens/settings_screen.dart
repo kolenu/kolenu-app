@@ -8,6 +8,7 @@ import '../services/loop_preference_service.dart';
 import 'playlist_screen.dart';
 import '../services/font_size_preference_service.dart';
 import '../services/orientation_preference_service.dart';
+import '../services/text_alignment_preference_service.dart';
 import '../services/song_download_service.dart';
 import '../services/terms_agreement_service.dart';
 
@@ -21,6 +22,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _lockPortrait = false;
   FontSizeOption _fontSize = FontSizeOption.medium;
+  TextAlignmentOption _textAlignment = TextAlignmentOption.right;
   PlaybackMode _playbackMode = PlaybackMode.playOnce;
 
   @override
@@ -32,11 +34,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadPreferences() async {
     final lock = await OrientationPreferenceService.getLockPortrait();
     final font = await FontSizePreferenceService.getOption();
+    final alignment = await TextAlignmentPreferenceService.getOption();
     final mode = await LoopPreferenceService.getPlaybackMode();
     if (mounted) {
       setState(() {
         _lockPortrait = lock;
         _fontSize = font;
+        _textAlignment = alignment;
         _playbackMode = mode;
       });
     }
@@ -224,6 +228,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final v = s.first;
                 setState(() => _fontSize = v);
                 await FontSizePreferenceService.setOption(v);
+              },
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Text alignment',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SegmentedButton<TextAlignmentOption>(
+              segments: TextAlignmentOption.values
+                  .map((o) => ButtonSegment(value: o, label: Text(o.label)))
+                  .toList(),
+              selected: {_textAlignment},
+              onSelectionChanged: (s) async {
+                final v = s.first;
+                setState(() => _textAlignment = v);
+                await TextAlignmentPreferenceService.setOption(v);
               },
             ),
             const SizedBox(height: 32),

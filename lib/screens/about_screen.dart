@@ -41,7 +41,7 @@ class _AboutScreenState extends State<AboutScreen> {
   Future<void> _sendFeedback() async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
-      path: 'info@digimint.ca',
+      path: 'info@kolenu.net',
       query: 'subject=Kolenu App Feedback',
     );
     if (await canLaunchUrl(emailUri)) {
@@ -52,7 +52,7 @@ class _AboutScreenState extends State<AboutScreen> {
   Future<void> _reportIPViolation() async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
-      path: 'info@digimint.ca',
+      path: 'info@kolenu.net',
       query: 'subject=IP Violation Report',
     );
     if (await canLaunchUrl(emailUri)) {
