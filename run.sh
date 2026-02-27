@@ -11,22 +11,7 @@ set -e
 FLUTTER_CMD="${1:-run}"
 shift || true
 
-# On macOS, ensure iOS Simulator is running before flutter run
-if [[ "$(uname)" == "Darwin" && "$FLUTTER_CMD" == "run" ]]; then
-  if ! xcrun simctl list devices 2>/dev/null | grep -q "Booted"; then
-    echo "Starting iOS Simulator..."
-    open -a Simulator
-    echo "Waiting for Simulator to boot..."
-    for i in {1..30}; do
-      if xcrun simctl list devices 2>/dev/null | grep -q "Booted"; then
-        echo "Simulator ready."
-        break
-      fi
-      sleep 1
-    done
-  fi
-fi
-
+# No default target: use whatever device VSCode/CLI has selected.
 # Pass keys via dart-define if loaded; otherwise app uses embedded dummy keys
 if [[ -n "$KOLENU_KEY_NAME" && -n "$KOLENU_AUDIO_KEY" && -n "$KOLENU_DOWNLOAD_KEY" ]]; then
     echo "Running flutter $FLUTTER_CMD with release: $KOLENU_KEY_NAME"

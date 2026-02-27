@@ -1069,21 +1069,24 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       minHeight: minTextHeight,
                       maxWidth: viewportWidth - padding * 2 - 48,
                     ),
-                    child: ValueListenableBuilder<TextAlignmentOption>(
-                      valueListenable:
-                          TextAlignmentPreferenceService.optionNotifier,
-                      builder: (context, alignment, _) {
-                        return FittedBox(
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: viewportWidth - padding * 2 - 48,
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: ValueListenableBuilder<TextAlignmentOption>(
+                        valueListenable:
+                            TextAlignmentPreferenceService.optionNotifier,
+                        builder: (context, alignment, _) {
+                          return FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: viewportWidth - padding * 2 - 48,
+                              ),
+                              child: _buildWordByWord(content, alignment),
                             ),
-                            child: _buildWordByWord(content, alignment),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -1100,8 +1103,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     TextAlignmentOption alignment,
   ) {
     final textAlign = alignment.textAlign;
-    final wrapAlign = alignment == TextAlignmentOption.right
-        ? WrapAlignment.end
+    final wrapAlign = alignment == TextAlignmentOption.rtl
+        ? WrapAlignment.start
         : WrapAlignment.center;
     final words = content.words;
     if (words.isEmpty) {
@@ -1153,6 +1156,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     final end = _endWordIndexForPage(content, _currentPage);
 
     return Wrap(
+      textDirection: TextDirection.rtl,
       alignment: wrapAlign,
       runAlignment: wrapAlign,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -1220,6 +1224,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 ),
                 child: Text(
                   w.word,
+                  textDirection: TextDirection.rtl,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontSize: 24,
                     height: 1.8,

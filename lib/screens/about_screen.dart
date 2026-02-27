@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/kolenu_logo.dart';
 import 'legal_documents_screen.dart';
 import 'settings_screen.dart';
+import 'support_kolenu_screen.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -159,6 +160,45 @@ class _AboutScreenState extends State<AboutScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
+              Semantics(
+                label: 'Support Kolenu',
+                button: true,
+                child: FilledButton.tonal(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (context) => const SupportKolenuScreen(),
+                      ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.favorite,
+                        color: colorScheme.onSecondaryContainer,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Support Kolenu',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(
                 'Important Notices',
                 style: theme.textTheme.titleMedium?.copyWith(

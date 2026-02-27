@@ -6,6 +6,7 @@ import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/loop_preference_service.dart';
 import 'playlist_screen.dart';
+import 'support_kolenu_screen.dart';
 import '../services/font_size_preference_service.dart';
 import '../services/orientation_preference_service.dart';
 import '../services/text_alignment_preference_service.dart';
@@ -22,7 +23,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _lockPortrait = false;
   FontSizeOption _fontSize = FontSizeOption.medium;
-  TextAlignmentOption _textAlignment = TextAlignmentOption.right;
+  TextAlignmentOption _textAlignment = TextAlignmentOption.rtl;
   PlaybackMode _playbackMode = PlaybackMode.playOnce;
 
   @override
@@ -188,6 +189,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (context.mounted) {
                   Navigator.of(context).pop('play_playlist');
                 }
+              },
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Support',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 14),
+            ListTile(
+              leading: Icon(Icons.favorite, color: colorScheme.primary),
+              title: const Text('Support Kolenu'),
+              subtitle: const Text(
+                'Help us record high-quality Hebrew audio.',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => const SupportKolenuScreen(),
+                  ),
+                );
               },
             ),
             const SizedBox(height: 32),
