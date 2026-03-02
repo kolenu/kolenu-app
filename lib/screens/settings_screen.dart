@@ -149,13 +149,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ),
-                          ...PlaybackMode.values.map((m) => ListTile(
-                            title: Text(m.label),
-                            trailing: _playbackMode == m
-                                ? Icon(Icons.check, color: cs.primary)
-                                : null,
-                            onTap: () => Navigator.pop(ctx, m),
-                          )),
+                          ...PlaybackMode.values.map(
+                            (m) => ListTile(
+                              title: Text(m.label),
+                              trailing: _playbackMode == m
+                                  ? Icon(Icons.check, color: cs.primary)
+                                  : null,
+                              onTap: () => Navigator.pop(ctx, m),
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -204,9 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: Icon(Icons.favorite, color: colorScheme.primary),
               title: const Text('Support Kolenu'),
-              subtitle: const Text(
-                'Help us record high-quality Hebrew audio.',
-              ),
+              subtitle: const Text('Help us record high-quality Hebrew audio.'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.push(

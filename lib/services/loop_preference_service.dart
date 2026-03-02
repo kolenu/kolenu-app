@@ -33,8 +33,6 @@ class LoopPreferenceService {
   }
 
   static Future<void> setLoopOne(bool value) async {
-    await setPlaybackMode(
-      value ? PlaybackMode.loopOne : PlaybackMode.playOnce,
-    );
+    await setPlaybackMode(value ? PlaybackMode.loopOne : PlaybackMode.playOnce);
   }
 }

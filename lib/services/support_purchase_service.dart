@@ -37,13 +37,16 @@ class SupportPurchaseService {
   }) async {
     _available = await _iap.isAvailable();
     if (!_available) {
-      debugPrint('SupportPurchaseService: IAP not available (simulator? no store?)');
+      debugPrint(
+        'SupportPurchaseService: IAP not available (simulator? no store?)',
+      );
       return;
     }
 
     _subscription = _iap.purchaseStream.listen(
       onPurchaseUpdate,
-      onError: (e) => debugPrint('SupportPurchaseService purchaseStream error: $e'),
+      onError: (e) =>
+          debugPrint('SupportPurchaseService purchaseStream error: $e'),
     );
 
     await _loadProducts();
@@ -52,14 +55,16 @@ class SupportPurchaseService {
   Future<void> _loadProducts() async {
     if (!_available) return;
     try {
-      final response = await _iap.queryProductDetails(SupportTier.productIds.toSet());
+      final response = await _iap.queryProductDetails(
+        SupportTier.productIds.toSet(),
+      );
       if (response.notFoundIDs.isNotEmpty) {
-        debugPrint('SupportPurchaseService: products not found: ${response.notFoundIDs}');
+        debugPrint(
+          'SupportPurchaseService: products not found: ${response.notFoundIDs}',
+        );
       }
       if (response.productDetails.isNotEmpty) {
-        _products = {
-          for (final p in response.productDetails) p.id: p,
-        };
+        _products = {for (final p in response.productDetails) p.id: p};
       }
     } catch (e) {
       debugPrint('SupportPurchaseService: loadProducts error: $e');

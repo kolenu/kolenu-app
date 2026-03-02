@@ -591,7 +591,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   value: WordHintMode.transliteration,
                   child: Row(
                     children: [
-                      _WordHintIcon(mode: WordHintMode.transliteration, size: 40),
+                      _WordHintIcon(
+                        mode: WordHintMode.transliteration,
+                        size: 40,
+                      ),
                       SizedBox(width: 12),
                       Text('Transliteration'),
                     ],
@@ -617,9 +620,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   child: Row(
                     children: [
                       Icon(
-                        selected
-                            ? Icons.check_circle
-                            : Icons.circle_outlined,
+                        selected ? Icons.check_circle : Icons.circle_outlined,
                         size: 20,
                         color: selected
                             ? Theme.of(context).colorScheme.primary
@@ -640,11 +641,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               }).toList(),
               child: const Padding(
                 padding: EdgeInsets.all(8),
-                child: Icon(
-                  Icons.speed_rounded,
-                  size: 22,
-                  color: _brandGreen,
-                ),
+                child: Icon(Icons.speed_rounded, size: 22, color: _brandGreen),
               ),
             ),
           IconButton(
@@ -697,9 +694,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 borderRadius: BorderRadius.circular(2),
                 child: LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                   valueColor: const AlwaysStoppedAnimation<Color>(_brandGreen),
                 ),
               ),
@@ -742,9 +739,12 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     label: playing ? 'Pause' : 'Play',
                     button: true,
                     child: GestureDetector(
-                      onTapDown: (_) => setState(() => _playButtonPressed = true),
-                      onTapUp: (_) => setState(() => _playButtonPressed = false),
-                      onTapCancel: () => setState(() => _playButtonPressed = false),
+                      onTapDown: (_) =>
+                          setState(() => _playButtonPressed = true),
+                      onTapUp: (_) =>
+                          setState(() => _playButtonPressed = false),
+                      onTapCancel: () =>
+                          setState(() => _playButtonPressed = false),
                       child: AnimatedScale(
                         scale: _playButtonPressed ? 0.96 : 1.0,
                         duration: const Duration(milliseconds: 100),
@@ -825,8 +825,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         _playbackMode == PlaybackMode.loopOne
                             ? Icons.repeat_one_rounded
                             : _playbackMode == PlaybackMode.loopPlaylist
-                                ? Icons.repeat_rounded
-                                : Icons.replay_rounded,
+                            ? Icons.repeat_rounded
+                            : Icons.replay_rounded,
                         color: _brandGreen,
                       ),
                       onPressed: () async {
@@ -843,23 +843,23 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ),
-                                ...PlaybackMode.values.map((m) => ListTile(
-                                  title: Text(m.label),
-                                  trailing: _playbackMode == m
-                                      ? Icon(
-                                          Icons.check,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                        )
-                                      : null,
-                                  onTap: () => Navigator.pop(ctx, m),
-                                )),
+                                ...PlaybackMode.values.map(
+                                  (m) => ListTile(
+                                    title: Text(m.label),
+                                    trailing: _playbackMode == m
+                                        ? Icon(
+                                            Icons.check,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          )
+                                        : null,
+                                    onTap: () => Navigator.pop(ctx, m),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -873,23 +873,23 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                                 : LoopMode.off,
                           );
                           await _playerStateSub?.cancel();
-                          _playerStateSub = _player.playerStateStream.listen(
-                            (state) async {
-                              if (!mounted) return;
-                              if (state.processingState ==
-                                  ProcessingState.completed) {
-                                if (_playbackMode == PlaybackMode.loopPlaylist &&
-                                    widget.playlistIds != null &&
-                                    widget.playlistIds!.length > 1) {
-                                  _advanceToNextInPlaylist();
-                                } else if (_playbackMode ==
-                                    PlaybackMode.playOnce) {
-                                  await _player.stop();
-                                  if (mounted) setState(() {});
-                                }
+                          _playerStateSub = _player.playerStateStream.listen((
+                            state,
+                          ) async {
+                            if (!mounted) return;
+                            if (state.processingState ==
+                                ProcessingState.completed) {
+                              if (_playbackMode == PlaybackMode.loopPlaylist &&
+                                  widget.playlistIds != null &&
+                                  widget.playlistIds!.length > 1) {
+                                _advanceToNextInPlaylist();
+                              } else if (_playbackMode ==
+                                  PlaybackMode.playOnce) {
+                                await _player.stop();
+                                if (mounted) setState(() {});
                               }
-                            },
-                          );
+                            }
+                          });
                         }
                       },
                     ),
@@ -1130,9 +1130,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     fontWeight: i == 0 ? FontWeight.bold : FontWeight.normal,
                     color: i == 0
                         ? Theme.of(context).colorScheme.onSurface
-                        : Theme.of(context).colorScheme.onSurface.withValues(
-                            alpha: 0.9,
-                          ),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.9),
                   ),
                   textAlign: textAlign,
                 ),
@@ -1216,9 +1216,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   color: isCurrent
                       ? _highlightGreen
                       : (isTapped
-                            ? Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
+                            ? Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest
                             : null),
                   borderRadius: BorderRadius.circular(20),
                 ),

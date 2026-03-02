@@ -91,10 +91,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                   child: Container(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surface
-                        .withValues(alpha: 0.85),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.85),
                     child: NavigationBar(
                       elevation: 8,
                       backgroundColor: Colors.transparent,

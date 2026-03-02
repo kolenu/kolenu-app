@@ -28,8 +28,7 @@ class TextAlignmentPreferenceService {
     if (name == null) return TextAlignmentOption.rtl;
     // Migrate legacy "right" to "rtl"
     if (name == 'right') return TextAlignmentOption.rtl;
-    final index =
-        TextAlignmentOption.values.indexWhere((v) => v.name == name);
+    final index = TextAlignmentOption.values.indexWhere((v) => v.name == name);
     return index >= 0
         ? TextAlignmentOption.values[index]
         : TextAlignmentOption.rtl;

@@ -78,10 +78,14 @@ class PrayerService {
       throw FormatException('Prayer JSON must be object or array', path);
     }
     // Merge title_en, title_he, and lines from text.json when available
-    final dir = file.contains('/') ? file.substring(0, file.lastIndexOf('/')) : '';
+    final dir = file.contains('/')
+        ? file.substring(0, file.lastIndexOf('/'))
+        : '';
     if (dir.isNotEmpty) {
       try {
-        final textStr = await rootBundle.loadString('$_prayersAssetPath/$dir/text.json');
+        final textStr = await rootBundle.loadString(
+          '$_prayersAssetPath/$dir/text.json',
+        );
         final textJson = jsonDecode(textStr);
         if (textJson is Map<String, dynamic>) {
           var title = content.title;
@@ -110,17 +114,17 @@ class PrayerService {
               description: content.description,
               text: content.text,
               lines: lines?.isNotEmpty == true ? lines : null,
-                sentences: content.sentences,
-                sentenceEndWordIndices: content.sentenceEndWordIndices,
-                words: content.words,
-                audio: content.audio,
-                recordings: content.recordings,
-                audioOffsetSeconds: content.audioOffsetSeconds,
-                performerName: content.performerName,
-                audioLicense: content.audioLicense,
-                textLicense: content.textLicense,
-                attribution: content.attribution,
-              );
+              sentences: content.sentences,
+              sentenceEndWordIndices: content.sentenceEndWordIndices,
+              words: content.words,
+              audio: content.audio,
+              recordings: content.recordings,
+              audioOffsetSeconds: content.audioOffsetSeconds,
+              performerName: content.performerName,
+              audioLicense: content.audioLicense,
+              textLicense: content.textLicense,
+              attribution: content.attribution,
+            );
           }
         }
       } catch (_) {
@@ -209,17 +213,17 @@ class PrayerService {
               description: content.description,
               text: content.text,
               lines: lines?.isNotEmpty == true ? lines : null,
-                sentences: content.sentences,
-                sentenceEndWordIndices: content.sentenceEndWordIndices,
-                words: content.words,
-                audio: content.audio,
-                recordings: content.recordings,
-                audioOffsetSeconds: content.audioOffsetSeconds,
-                performerName: content.performerName,
-                audioLicense: content.audioLicense,
-                textLicense: content.textLicense,
-                attribution: content.attribution,
-              );
+              sentences: content.sentences,
+              sentenceEndWordIndices: content.sentenceEndWordIndices,
+              words: content.words,
+              audio: content.audio,
+              recordings: content.recordings,
+              audioOffsetSeconds: content.audioOffsetSeconds,
+              performerName: content.performerName,
+              audioLicense: content.audioLicense,
+              textLicense: content.textLicense,
+              attribution: content.attribution,
+            );
           }
         }
       } catch (_) {

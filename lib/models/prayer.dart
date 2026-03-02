@@ -148,6 +148,7 @@ class PrayerContent {
   final String titleHebrew;
   final String? description;
   final String text;
+
   /// When present, display text line by line for readability.
   final List<String>? lines;
   final List<String> sentences;

@@ -76,14 +76,18 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
     if (_purchasing) return;
 
     if (!_service.isAvailable) {
-      setState(() => _error = 'In-app purchases are not available on this device.');
+      setState(
+        () => _error = 'In-app purchases are not available on this device.',
+      );
       return;
     }
 
     final product = _service.productForTier(tier);
     if (product == null) {
-      setState(() => _error =
-          'Products not loaded. Ensure IAP is configured in App Store Connect.');
+      setState(
+        () => _error =
+            'Products not loaded. Ensure IAP is configured in App Store Connect.',
+      );
       return;
     }
 
@@ -99,12 +103,11 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Support Kolenu ❤️'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Support Kolenu ❤️'), centerTitle: true),
       body: SafeArea(
-        child: _initialized ? _buildContent(theme, colorScheme) : _buildLoading(),
+        child: _initialized
+            ? _buildContent(theme, colorScheme)
+            : _buildLoading(),
       ),
     );
   }
@@ -138,7 +141,8 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          if (!_service.isAvailable) _buildUnavailableBanner(theme, colorScheme),
+          if (!_service.isAvailable)
+            _buildUnavailableBanner(theme, colorScheme),
           if (_error != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -163,11 +167,9 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          ...SupportTier.tiers.map((tier) => _buildTierCard(
-                theme,
-                colorScheme,
-                tier,
-              )),
+          ...SupportTier.tiers.map(
+            (tier) => _buildTierCard(theme, colorScheme, tier),
+          ),
         ],
       ),
     );

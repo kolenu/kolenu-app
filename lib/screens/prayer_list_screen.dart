@@ -36,7 +36,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   bool _hasMarkedChipShown = false;
 
   Future<({String? prayerId, String date, bool hasShownChip})>
-      _loadLastPracticedForDisplay() async {
+  _loadLastPracticedForDisplay() async {
     final practiced = await ProgressService.getLastPracticed();
     final hasShown = await ProgressService.hasShownLastPracticedChip();
     return (
@@ -190,11 +190,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.menu_book_rounded,
-              size: 28,
-              color: _deepGreen,
-            ),
+            const Icon(Icons.menu_book_rounded, size: 28, color: _deepGreen),
             const SizedBox(width: 8),
             Text(
               'Kolenu',
@@ -297,17 +293,18 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     return FutureBuilder<({String? prayerId, String date, bool hasShownChip})>(
       future: _loadLastPracticedForDisplay(),
       builder: (context, snap) {
-        final data = snap.data ??
-            (prayerId: null, date: '', hasShownChip: true);
+        final data =
+            snap.data ?? (prayerId: null, date: '', hasShownChip: true);
         final lastPracticed = (prayerId: data.prayerId, date: data.date);
         final title = lastPracticed.prayerId != null
             ? (_prayers
-                    .where((p) => p.id == lastPracticed.prayerId)
-                    .map((p) => p.title ?? p.id.replaceAll('_', ' '))
-                    .firstOrNull ??
-                lastPracticed.prayerId!.replaceAll('_', ' '))
+                      .where((p) => p.id == lastPracticed.prayerId)
+                      .map((p) => p.title ?? p.id.replaceAll('_', ' '))
+                      .firstOrNull ??
+                  lastPracticed.prayerId!.replaceAll('_', ' '))
             : null;
-        final showChip = title != null &&
+        final showChip =
+            title != null &&
             lastPracticed.date.isNotEmpty &&
             !data.hasShownChip;
         if (showChip && !_hasMarkedChipShown) {
@@ -443,8 +440,11 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               child: Column(
                 children: [
                   for (var idx = 0; idx < prayers.length; idx++) ...[
-                    _buildPrayerRow(theme, prayers[idx],
-                        showDivider: idx < prayers.length - 1),
+                    _buildPrayerRow(
+                      theme,
+                      prayers[idx],
+                      showDivider: idx < prayers.length - 1,
+                    ),
                   ],
                 ],
               ),
@@ -455,12 +455,15 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     }).toList();
   }
 
-  Widget _buildPrayerRow(ThemeData theme, PrayerListItem item,
-      {required bool showDivider}) {
+  Widget _buildPrayerRow(
+    ThemeData theme,
+    PrayerListItem item, {
+    required bool showDivider,
+  }) {
     final recordingIds = _useCloudIndex
         ? (item.recordings != null && item.recordings!.isNotEmpty
-            ? item.recordings!
-            : [item.id])
+              ? item.recordings!
+              : [item.id])
         : <String>[];
     final hasRecordings = recordingIds.isNotEmpty;
     return Builder(
@@ -549,9 +552,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                                             '$cached/$total',
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                              color: _primaryGreen,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                                  color: _primaryGreen,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
                                         ],
                                       ],
@@ -864,7 +867,12 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
               final found = _prayers.where((p) => p.id == nextId);
               final nextItem = found.isEmpty ? null : found.first;
               if (nextItem != null && mounted) {
-                _openReader(nextItem, context, playlistIds: ids, currentIndex: nextIndex);
+                _openReader(
+                  nextItem,
+                  context,
+                  playlistIds: ids,
+                  currentIndex: nextIndex,
+                );
               }
             }
           }

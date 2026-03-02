@@ -22,10 +22,7 @@ void main() {
     });
 
     test('fromJson accepts optional title_en and title_he', () {
-      final json = {
-        'id': 'shema',
-        'category': 'daily',
-      };
+      final json = {'id': 'shema', 'category': 'daily'};
       final item = PrayerListItem.fromJson(json);
       expect(item.id, 'shema');
       expect(item.title, isNull);

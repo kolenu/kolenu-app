@@ -57,6 +57,5 @@ class SupportTier {
     ),
   ];
 
-  static List<String> get productIds =>
-      tiers.map((t) => t.id).toList();
+  static List<String> get productIds => tiers.map((t) => t.id).toList();
 }
