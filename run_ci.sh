@@ -5,9 +5,6 @@ set -e
 
 echo "🚀 Starting Local CI Pipeline..."
 
-echo "🧹 [0/4] Applying Dart formatting..."
-dart format .
-
 echo "📦 [1/4] Getting dependencies..."
 flutter pub get
 

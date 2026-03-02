@@ -11,6 +11,9 @@ set -e
 FLUTTER_CMD="${1:-run}"
 shift || true
 
+echo "🧹 Applying Dart formatting..."
+dart format .
+
 RUN_MODE_FLAG=()
 if [[ "$FLUTTER_CMD" == "run" ]]; then
     read -rp "Choose mode [debug/release] (default: debug): " RUN_MODE

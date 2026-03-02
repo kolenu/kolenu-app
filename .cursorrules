@@ -1,0 +1,30 @@
+# Flutter & iOS Development Rules
+
+## Project Context
+- **Framework:** Flutter (Latest Stable)
+- **Language:** Dart
+- **Primary Target:** iOS (iPhone/iPad)
+- **Backend/Storage:** Cloudflare R2 & Workers (Gatekeeper architecture)
+- **State Management:** [Insert your preference here, e.g., BLoC, Provider, or Signals]
+
+## Coding Standards
+- **Strong Typing:** Always define types for variables and function returns. Avoid `dynamic`.
+- **Immutability:** Prefer `final` and `const` constructors where possible.
+- **Naming:** Follow standard Dart PascalCase for classes and camelCase for variables/functions.
+- **Widgets:** Prefer composition over deep inheritance. Use `SizedBox` for spacing instead of `Padding` where appropriate.
+
+## iOS & Platform Specifics
+- **Platform Checks:** Use `Theme.of(context).platform` or `defaultTargetPlatform` for UI-specific logic.
+- **Safe Area:** Always wrap top-level views in `SafeArea`.
+- **Permissions:** When adding features (Camera, Photo Library, etc.), remind the user to update `Info.plist`.
+- **Assets:** Ensure all asset paths are correctly referenced and synchronized with the secure Cloudflare gateway.
+
+## Security & Architecture
+- **Encryption:** Use AES-256 for sensitive local asset storage.
+- **Cloudflare Integration:** Use secure Workers for asset delivery. Never hardcode sensitive API keys; use environment variables or a secure configuration manager.
+- **Privacy:** Adhere to the latest iOS Privacy Manifest requirements for 2026.
+
+## AI Interaction Rules
+- **Code Execution:** When suggesting terminal commands, distinguish between `debug`, `profile`, and `release` modes.
+- **Documentation:** Provide concise comments for complex logic. 
+- **Refactoring:** If a widget exceeds 200 lines, suggest breaking it into smaller sub-widgets.

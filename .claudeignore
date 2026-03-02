@@ -1,0 +1,12 @@
+# Ignore audio files to save tokens
+*.mp3
+*.wav
+*.aac
+*.m4a
+*.enc
+
+# Ignore binary assets Claude can't read
+*.png
+*.jpg
+*.jpeg
+*.pdf
