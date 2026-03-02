@@ -16,8 +16,6 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int _selectedIndex = 0;
 
-  static const Color _tabGreen = Color(0xFF2E7D32);
-
   @override
   void initState() {
     super.initState();
@@ -55,13 +53,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
           navigationBarTheme: NavigationBarThemeData(
-            indicatorColor: _tabGreen.withValues(alpha: 0.2),
+            indicatorColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.15),
             indicatorShape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             iconTheme: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const IconThemeData(color: _tabGreen);
+                return IconThemeData(
+                  color: Theme.of(context).colorScheme.primary,
+                );
               }
               return IconThemeData(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -69,10 +71,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
             }),
             labelTextStyle: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const TextStyle(
+                return TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: _tabGreen,
+                  color: Theme.of(context).colorScheme.primary,
                 );
               }
               return TextStyle(

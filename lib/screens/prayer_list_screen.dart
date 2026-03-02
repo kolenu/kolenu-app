@@ -23,10 +23,6 @@ class PrayerListScreen extends StatefulWidget {
 }
 
 class _PrayerListScreenState extends State<PrayerListScreen> {
-  static const Color _deepGreen = Color(0xFF1B5E20);
-  static const Color _primaryGreen = Color(0xFF2E7D32);
-  static const Color _iconTintGreen = Color(0xFFE8F5E9);
-
   List<PrayerListItem> _prayers = [];
   List<RecordingOption>? _indexRecordings;
   bool _useCloudIndex = false;
@@ -190,21 +186,28 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.menu_book_rounded, size: 28, color: _deepGreen),
+            Icon(
+              Icons.menu_book_rounded,
+              size: 28,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               'Kolenu',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
-                color: _deepGreen,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: _primaryGreen),
+            icon: Icon(
+              Icons.settings_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             tooltip: 'Settings',
             onPressed: () async {
               final result = await Navigator.of(context).push<Object?>(
@@ -338,17 +341,17 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _iconTintGreen.withValues(alpha: 0.5),
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _primaryGreen.withValues(alpha: 0.3),
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
       child: Text(
         'Last practiced: $prayerTitle · $relativeDate',
         style: theme.textTheme.labelMedium?.copyWith(
-          color: _deepGreen,
+          color: theme.colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w600,
         ),
         maxLines: 1,
@@ -416,7 +419,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                     height: 2,
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
-                      color: _primaryGreen,
+                      color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(1),
                     ),
                   ),
@@ -425,7 +428,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                     style: theme.textTheme.labelSmall?.copyWith(
                       fontSize: 11,
                       letterSpacing: 0.12,
-                      color: _primaryGreen,
+                      color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -488,12 +491,12 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _iconTintGreen,
+                          color: theme.colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.menu_book_rounded,
-                          color: _primaryGreen,
+                          color: theme.colorScheme.onPrimaryContainer,
                           size: 26,
                         ),
                       ),
@@ -541,10 +544,10 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.offline_pin_rounded,
                                           size: 18,
-                                          color: _primaryGreen,
+                                          color: theme.colorScheme.primary,
                                         ),
                                         if (total > 1) ...[
                                           const SizedBox(width: 2),
@@ -552,7 +555,8 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                                             '$cached/$total',
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                                  color: _primaryGreen,
+                                                  color:
+                                                      theme.colorScheme.primary,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                           ),
