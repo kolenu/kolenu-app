@@ -145,3 +145,5 @@ app.*.symbols
 
 # Custom files
 
+# Local symlink to kolenu-workspace (private); do not commit
+requirements-link
