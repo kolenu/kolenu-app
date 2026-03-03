@@ -348,14 +348,27 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           width: 1,
         ),
       ),
-      child: Text(
-        'Last practiced: $prayerTitle · $relativeDate',
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: theme.colorScheme.onPrimaryContainer,
-          fontWeight: FontWeight.w600,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.history_rounded,
+            size: 15,
+            color: theme.colorScheme.onPrimaryContainer,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Last practiced: $prayerTitle · $relativeDate',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -435,21 +448,24 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                 ],
               ),
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Column(
-                children: [
-                  for (var idx = 0; idx < prayers.length; idx++) ...[
-                    _buildPrayerRow(
-                      theme,
-                      prayers[idx],
-                      showDivider: idx < prayers.length - 1,
-                    ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    for (var idx = 0; idx < prayers.length; idx++) ...[
+                      _buildPrayerRow(
+                        theme,
+                        prayers[idx],
+                        showDivider: idx < prayers.length - 1,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -748,8 +764,21 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const SizedBox(height: 8),
+              Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Text(
                   'Choose recording',
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -757,6 +786,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
                   ),
                 ),
               ),
+              const Divider(height: 1, thickness: 1),
               ...recordings.map((v) {
                 final isLastPlayed = v.id == lastPlayedRecordingId;
                 final meta = metadataMap[v.id];

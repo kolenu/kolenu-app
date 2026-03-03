@@ -135,7 +135,7 @@ class _AboutScreenState extends State<AboutScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -159,11 +159,11 @@ class _AboutScreenState extends State<AboutScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
               Semantics(
                 label: 'Support Kolenu',
                 button: true,
-                child: FilledButton.tonal(
+                child: FilledButton(
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -173,24 +173,21 @@ class _AboutScreenState extends State<AboutScreen> {
                     );
                   },
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 24,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.favorite,
-                        color: colorScheme.onSecondaryContainer,
-                        size: 22,
+                        color: colorScheme.onPrimary,
+                        size: 20,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Text(
                         'Support Kolenu',
                         style: theme.textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
+                          color: colorScheme.onPrimary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -198,154 +195,138 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
-              Text(
-                'Important Notices',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Kolenu provides Jewish prayer content for personal, educational, and religious study. We aim for accuracy but make no guarantees. '
-                  'Always consult a qualified rabbi, cantor, or teacher for religious decisions. This app is provided "as is" with no developer liability.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.tonal(
-                onPressed: () => _showUsageDisclaimerDialog(context),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 24,
-                  ),
-                ),
-                child: const Text('View Full Usage Disclaimer'),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                'Report IP Violation',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'We respect intellectual property. If you believe your work is used without permission, please report it immediately for removal.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.tonal(
-                onPressed: _reportIPViolation,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 24,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.flag_outlined,
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Report IP Violation',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: colorScheme.onSecondaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              Text(
-                'Feedback',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Semantics(
-                label: 'Send feedback about the app',
-                button: true,
-                child: FilledButton.tonal(
-                  onPressed: _sendFeedback,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 24,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 24),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.feedback_outlined,
-                        color: colorScheme.onSecondaryContainer,
-                      ),
-                      const SizedBox(width: 12),
                       Text(
-                        'Send Feedback',
+                        'Important Notices',
                         style: theme.textTheme.titleSmall?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Kolenu provides Jewish prayer content for personal, educational, and religious study. We aim for accuracy but make no guarantees. '
+                        'Always consult a qualified rabbi, cantor, or teacher for religious decisions. This app is provided "as is" with no developer liability.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => _showUsageDisclaimerDialog(context),
+                          child: const Text('View Full Usage Disclaimer'),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
-              Text(
-                'Legal & Disclaimers',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: () => _openLegalDocuments(context),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                    horizontal: 24,
+              const SizedBox(height: 12),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Report IP Violation',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'We respect intellectual property. If you believe your work is used without permission, please report it immediately for removal.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _reportIPViolation,
+                          icon: const Icon(Icons.flag_outlined, size: 18),
+                          label: const Text('Report IP Violation'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: const Text('View All Legal Documents'),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 12),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Feedback',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Semantics(
+                        label: 'Send feedback about the app',
+                        button: true,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _sendFeedback,
+                            icon: const Icon(Icons.feedback_outlined, size: 18),
+                            label: const Text('Send Feedback'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                margin: EdgeInsets.zero,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Legal & Disclaimers',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.tonal(
+                          onPressed: () => _openLegalDocuments(context),
+                          child: const Text('View All Legal Documents'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
               FutureBuilder<String>(
                 future: _versionLabel,
                 builder: (context, snapshot) {
