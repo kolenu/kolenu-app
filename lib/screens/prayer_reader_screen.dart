@@ -133,12 +133,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   static const String _prayersAssetPath = 'assets/audio';
 
-  static const Color _brandGreen = Color(0xFF2E7D32);
-  static const Color _brandGreenLight = Color(0xFF43A047);
-  static const Color _mutedGreen = Color(0xFF558B2F);
-  static const Color _highlightGreen = Color(0xFFA8D5B5);
-  static const Color _buttonTintGreen = Color(0xFFE8F5E9);
-
   /// Base path for this prayer's assets (e.g. "shema" when file is "shema/content.json", else "").
   String get _prayerAssetBase {
     final f = widget.prayerFile;
@@ -501,11 +495,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        iconTheme: const IconThemeData(color: _brandGreen),
+        iconTheme: IconThemeData(
+          color: Theme.of(context).colorScheme.primary,
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(
-            color: _mutedGreen.withValues(alpha: 0.3),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
             height: 1,
           ),
         ),
@@ -533,7 +529,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     child: Text(
                       _content?.titleHebrew ?? widget.titleHebrew,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: _mutedGreen,
+                        color: Theme.of(context).colorScheme.secondary,
                         fontSize: 15,
                       ),
                     ),
@@ -543,10 +539,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             ),
             if (widget.localSongFolderId != null) ...[
               const SizedBox(width: 8),
-              const Icon(
+              Icon(
                 Icons.offline_pin_rounded,
                 size: 18,
-                color: _brandGreen,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ],
           ],
@@ -639,9 +635,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   ),
                 );
               }).toList(),
-              child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: Icon(Icons.speed_rounded, size: 22, color: _brandGreen),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.speed_rounded,
+                  size: 22,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           IconButton(
@@ -657,13 +657,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFAFAF7), Color(0xFFF5F5F0)],
-          ),
-        ),
+        color: Theme.of(context).colorScheme.surface,
         child: Directionality(
           textDirection: TextDirection.rtl,
           child: _buildBody(),
@@ -697,7 +691,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.surfaceContainerHighest,
-                  valueColor: const AlwaysStoppedAnimation<Color>(_brandGreen),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ),
@@ -712,11 +708,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Material(
-                        color: _buttonTintGreen,
+                        color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
                         child: IconButton(
                           icon: const Icon(Icons.chevron_right_rounded),
-                          color: _brandGreen,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                           onPressed: canPrev
                               ? () => _goToPage(_currentPage - 1)
                               : null,
@@ -761,52 +759,49 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                           },
                           child: Material(
                             elevation: 3,
-                            shadowColor: Colors.black.withValues(alpha: 0.2),
+                            color: Theme.of(context).colorScheme.primary,
+                            shadowColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.4),
                             borderRadius: BorderRadius.circular(28),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(28),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [_brandGreen, _brandGreenLight],
+                            child: InkWell(
+                              onTap: () async {
+                                if (playing) {
+                                  await _pause();
+                                } else {
+                                  await _play();
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(28),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                  vertical: 16,
                                 ),
-                              ),
-                              child: InkWell(
-                                onTap: () async {
-                                  if (playing) {
-                                    await _pause();
-                                  } else {
-                                    await _play();
-                                  }
-                                },
-                                borderRadius: BorderRadius.circular(28),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 32,
-                                    vertical: 16,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        playing
-                                            ? Icons.graphic_eq_rounded
-                                            : Icons.play_arrow_rounded,
-                                        color: Colors.white,
-                                        size: 28,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      playing
+                                          ? Icons.graphic_eq_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
+                                      size: 28,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      playing ? 'Pause' : 'Play',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        playing ? 'Pause' : 'Play',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -827,7 +822,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                             : _playbackMode == PlaybackMode.loopPlaylist
                             ? Icons.repeat_rounded
                             : Icons.replay_rounded,
-                        color: _brandGreen,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                       onPressed: () async {
                         final chosen = await showModalBottomSheet<PlaybackMode>(
@@ -902,11 +897,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Material(
-                        color: _buttonTintGreen,
+                        color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
                         child: IconButton(
                           icon: const Icon(Icons.chevron_left_rounded),
-                          color: _brandGreen,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                           onPressed: canNext
                               ? () => _goToPage(_currentPage + 1)
                               : null,
@@ -1054,13 +1051,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAF7),
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
                         blurRadius: 12,
                         offset: const Offset(0, 4),
-                        color: Colors.black.withValues(alpha: 0.08),
+                        color: Colors.black.withValues(alpha: 0.06),
                       ),
                     ],
                   ),
@@ -1214,7 +1211,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: isCurrent
-                      ? _highlightGreen
+                      ? Theme.of(context).colorScheme.primaryContainer
                       : (isTapped
                             ? Theme.of(
                                 context,
@@ -1231,7 +1228,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     letterSpacing: 0.02,
                     fontWeight: isCurrent ? FontWeight.w600 : null,
                     color: isCurrent
-                        ? const Color(0xFF1B5E20)
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
                         : Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
