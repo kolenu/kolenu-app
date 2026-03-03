@@ -4,8 +4,6 @@
 
 Kolenu ("the App") is a religious and educational application designed to help users learn and practice Hebrew prayers through audio and text. We take your privacy seriously and intentionally minimize data collection.
 
----
-
 ## **1. Information We Collect**
 
 Kolenu does **not** collect personal information.
@@ -19,15 +17,11 @@ We do **not** collect:
 
 No registration or login is required.
 
----
-
 ## **2. Automatic Information**
 
 When downloading audio or text, standard network information (e.g., IP addresses and HTTP headers) may be processed by our content delivery provider (Cloudflare) to deliver files efficiently. This information is **not linked to any user** and is **not stored by Kolenu**.
 
 The app **does not collect device identifiers, advertising identifiers (IDFA), or other unique IDs**.
-
----
 
 ## **3. In-App Purchases**
 
@@ -39,15 +33,11 @@ Kolenu offers optional subscriptions through **Apple App Store**:
 
 Please see Apple's privacy policy for payment details.
 
----
-
 ## **4. Downloaded Content & Offline Use**
 
 * Content may be downloaded for offline use.
 * Files are stored **securely in the app's private sandbox** and cannot be accessed by other apps.
 * Some audio files are encrypted to prevent reuse outside the app. This encryption **does not track users**.
-
----
 
 ## **5. Analytics & Advertising**
 
@@ -58,19 +48,13 @@ Kolenu:
 * Does **not** serve ads
 * Does **not** use advertising identifiers (IDFA)
 
----
-
 ## **6. Children's Privacy**
 
 Kolenu does **not** knowingly collect personal information from children. The app contains no social features, messaging, or user-generated content.
 
----
-
 ## **7. Data Sharing**
 
 Kolenu does **not** sell, rent, or share personal data. The only third-party service involved is a CDN (Cloudflare) to deliver static audio and text files efficiently.
-
----
 
 ## **8. Data Security**
 
@@ -78,21 +62,15 @@ Kolenu does **not** sell, rent, or share personal data. The only third-party ser
 * No personal data is stored or transmitted.
 * Network communication uses HTTPS encryption.
 
----
-
 ## **9. Changes to This Policy**
 
 If this Privacy Policy changes, the updated version will be available within the app and/or on our website.
-
----
 
 ## **10. Contact**
 
 For questions about this Privacy Policy:
 
 **Email:** [hello@kolenu.net](mailto:hello@kolenu.net)
-
----
 
 ### **Summary**
 
