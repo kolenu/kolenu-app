@@ -92,7 +92,7 @@ For detailed information about copyright ownership, licensing of specific
 content, and our "Notice and Notice" takedown procedure to report copyright
 concerns, please see [COPYRIGHT_DISCLAIMER.md](COPYRIGHT_DISCLAIMER.md).
 
-Contact: info@kolenu.net
+Contact: hello@kolenu.net
 
 ---
 

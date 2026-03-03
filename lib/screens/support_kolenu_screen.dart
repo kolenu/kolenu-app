@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../config/legal.dart';
 import '../models/support_tier.dart';
 import '../services/support_purchase_service.dart';
 
@@ -169,6 +170,15 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
           ],
           ...SupportTier.tiers.map(
             (tier) => _buildTierCard(theme, colorScheme, tier),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            LegalText.supportDisclaimer,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

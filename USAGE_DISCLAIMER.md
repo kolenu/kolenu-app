@@ -18,7 +18,7 @@ We respect intellectual property rights. If you believe your work is used withou
 
 **To report an IP violation:**
 
-* **Email:** info@kolenu.net
+* **Email:** hello@kolenu.net
 * **Subject:** IP Violation Report
 
 Please include:

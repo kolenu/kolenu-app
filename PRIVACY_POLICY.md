@@ -90,7 +90,7 @@ If this Privacy Policy changes, the updated version will be available within the
 
 For questions about this Privacy Policy:
 
-**Email:** [info@kolenu.net](mailto:info@kolenu.net)
+**Email:** [hello@kolenu.net](mailto:hello@kolenu.net)
 
 ---
 
