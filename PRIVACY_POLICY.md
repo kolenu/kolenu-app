@@ -2,7 +2,7 @@
 
 **Last updated:** February 13, 2026
 
-Kolenu (“the App”) is a religious and educational application designed to help users learn and practice Hebrew prayers through audio and text. We take your privacy seriously and intentionally minimize data collection.
+Kolenu ("the App") is a religious and educational application designed to help users learn and practice Hebrew prayers through audio and text. We take your privacy seriously and intentionally minimize data collection.
 
 ---
 
@@ -37,14 +37,14 @@ Kolenu offers optional subscriptions through **Apple App Store**:
 * Kolenu does **not** receive or store payment information.
 * Subscription status is managed locally on the device.
 
-Please see Apple’s privacy policy for payment details.
+Please see Apple's privacy policy for payment details.
 
 ---
 
 ## **4. Downloaded Content & Offline Use**
 
 * Content may be downloaded for offline use.
-* Files are stored **securely in the app’s private sandbox** and cannot be accessed by other apps.
+* Files are stored **securely in the app's private sandbox** and cannot be accessed by other apps.
 * Some audio files are encrypted to prevent reuse outside the app. This encryption **does not track users**.
 
 ---
@@ -60,7 +60,7 @@ Kolenu:
 
 ---
 
-## **6. Children’s Privacy**
+## **6. Children's Privacy**
 
 Kolenu does **not** knowingly collect personal information from children. The app contains no social features, messaging, or user-generated content.
 
@@ -100,4 +100,3 @@ For questions about this Privacy Policy:
 * No tracking or ads
 * Subscriptions handled by Apple
 * Offline-first, privacy-first design
-
