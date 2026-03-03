@@ -14,7 +14,7 @@ extension PlaybackModeExtension on PlaybackMode {
   String get label {
     switch (this) {
       case PlaybackMode.loopOne:
-        return 'Loop current';
+        return 'Repeat one';
       case PlaybackMode.loopPlaylist:
         return 'Loop playlist';
       case PlaybackMode.playOnce:

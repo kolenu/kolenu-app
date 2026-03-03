@@ -6,7 +6,6 @@ import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/loop_preference_service.dart';
 import 'playlist_screen.dart';
-import 'support_kolenu_screen.dart';
 import '../services/font_size_preference_service.dart';
 import '../services/orientation_preference_service.dart';
 import '../services/text_alignment_preference_service.dart';
@@ -51,6 +50,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  static double _fontSizeIconSize(FontSizeOption o) {
+    switch (o) {
+      case FontSizeOption.small:
+        return 14;
+      case FontSizeOption.medium:
+        return 18;
+      case FontSizeOption.large:
+        return 22;
+      case FontSizeOption.extraLarge:
+        return 26;
+    }
   }
 
   Future<void> _clearStorageAndReset(BuildContext context) async {
@@ -131,74 +143,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const Divider(height: 1, indent: 16, endIndent: 16),
                   ListTile(
-                    title: const Text('Playback mode'),
-                    subtitle: Text(_playbackMode.label),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () async {
-                      final chosen =
-                          await showModalBottomSheet<PlaybackMode>(
-                            context: context,
-                            builder: (ctx) {
-                              final t = Theme.of(ctx);
-                              final cs = t.colorScheme;
-                              return SafeArea(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(height: 8),
-                                    Center(
-                                      child: Container(
-                                        width: 32,
-                                        height: 4,
-                                        decoration: BoxDecoration(
-                                          color: cs.onSurfaceVariant
-                                              .withValues(alpha: 0.3),
-                                          borderRadius:
-                                              BorderRadius.circular(2),
-                                        ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        12,
-                                        16,
-                                        8,
-                                      ),
-                                      child: Text(
-                                        'Playback mode',
-                                        style: t.textTheme.titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ),
-                                    const Divider(height: 1),
-                                    ...PlaybackMode.values.map(
-                                      (m) => ListTile(
-                                        title: Text(m.label),
-                                        trailing: _playbackMode == m
-                                            ? Icon(
-                                                Icons.check,
-                                                color: cs.primary,
-                                              )
-                                            : null,
-                                        onTap: () => Navigator.pop(ctx, m),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
-                      if (chosen != null && mounted) {
-                        setState(() => _playbackMode = chosen);
-                        await LoopPreferenceService.setPlaybackMode(chosen);
-                      }
-                    },
-                  ),
-                  const Divider(height: 1, indent: 16, endIndent: 16),
-                  ListTile(
                     title: const Text('Play default playlist'),
                     subtitle: const Text(
                       'Start playing the playlist from the beginning.',
@@ -226,24 +170,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('SUPPORT', style: sectionLabelStyle),
+            Text('REPEAT', style: sectionLabelStyle),
             const SizedBox(height: 8),
             Card(
               margin: EdgeInsets.zero,
               child: ListTile(
-                leading: Icon(Icons.favorite, color: colorScheme.primary),
-                title: const Text('Support Kolenu'),
-                subtitle: const Text(
-                  'Help us record high-quality Hebrew audio.',
-                ),
+                title: const Text('Playback mode'),
+                subtitle: Text(_playbackMode.label),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => const SupportKolenuScreen(),
-                    ),
+                onTap: () async {
+                  final chosen = await showModalBottomSheet<PlaybackMode>(
+                    context: context,
+                    builder: (ctx) {
+                      final t = Theme.of(ctx);
+                      final cs = t.colorScheme;
+                      return SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 8),
+                            Center(
+                              child: Container(
+                                width: 32,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: cs.onSurfaceVariant.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                              child: Text(
+                                'Playback mode',
+                                style: t.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const Divider(height: 1),
+                            ...PlaybackMode.values.map(
+                              (m) => ListTile(
+                                title: Text(m.label),
+                                trailing: _playbackMode == m
+                                    ? Icon(Icons.check, color: cs.primary)
+                                    : null,
+                                onTap: () => Navigator.pop(ctx, m),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   );
+                  if (chosen != null && mounted) {
+                    setState(() => _playbackMode = chosen);
+                    await LoopPreferenceService.setPlaybackMode(chosen);
+                  }
                 },
               ),
             ),
@@ -286,7 +271,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 .map(
                                   (o) => ButtonSegment(
                                     value: o,
-                                    label: Text(o.label),
+                                    label: Semantics(
+                                      label: o.label,
+                                      child: Icon(
+                                        Icons.format_size,
+                                        size: _fontSizeIconSize(o),
+                                      ),
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -332,7 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('STORAGE', style: sectionLabelStyle),
+            Text('OFFLINE', style: sectionLabelStyle),
             const SizedBox(height: 8),
             Card(
               margin: EdgeInsets.zero,
@@ -342,7 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Download prayers to listen without internet. Tap a prayer to download it — the pin icon shows which are cached.',
+                      'Save prayers for offline listening. Tap the pin icon on any prayer to download it.',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         height: 1.5,
@@ -355,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         builder: (context, snapshot) {
                           final size = snapshot.data ?? 0;
                           return Text(
-                            'Cached: ${_formatBytes(size)}',
+                            'Saved: ${_formatBytes(size)}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w600,
@@ -369,7 +360,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => _clearStorageAndReset(context),
-                        child: const Text('Clear storage and reset'),
+                        child: const Text('Clear downloads and reset'),
                       ),
                     ),
                   ],

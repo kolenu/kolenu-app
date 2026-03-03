@@ -495,9 +495,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(

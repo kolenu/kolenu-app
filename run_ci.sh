@@ -9,8 +9,12 @@ echo "📦 [1/4] Getting dependencies..."
 flutter pub get
 
 echo "✨ [2/4] Checking Formatting..."
-# This matches the PR check (it won't fix files, just check them)
-dart format --output=none --set-exit-if-changed .
+if ! dart format --output=none --set-exit-if-changed . ; then
+    echo "❌ Formatting issues found in the files listed above!"
+    echo "💡 Run 'dart format .' to fix them automatically, then try again."
+    exit 1
+fi
+echo "✅ Formatting is perfect!"
 
 echo "🔍 [3/4] Running Static Analysis..."
 # This ensures your code follows the strict rules we set

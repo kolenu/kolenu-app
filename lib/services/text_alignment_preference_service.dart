@@ -6,7 +6,7 @@ const String _keyTextAlignment = 'text_alignment';
 /// Text alignment for prayer content. Only center or RTL; app ignores system LTR.
 /// RTL is default (traditional siddur layout).
 enum TextAlignmentOption {
-  rtl('RTL', TextAlign.right),
+  rtl('Right', TextAlign.right),
   center('Center', TextAlign.center);
 
   const TextAlignmentOption(this.label, this.textAlign);
