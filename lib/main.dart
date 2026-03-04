@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'config/env_config.dart';
@@ -16,7 +17,10 @@ import 'theme/theme_variant_scope.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('EnvConfig: release=${EnvConfig.release}');
+  if (kDebugMode) {
+    // Avoid logging release identifier in production builds
+    debugPrint('EnvConfig: release=${EnvConfig.release}');
+  }
   await CacheKeysService.checkKeysAndClearIfChanged();
   await SongDownloadService.cleanupDownloadsOnStart();
   await OrientationPreferenceService.applyStoredOrientation();

@@ -1,10 +1,18 @@
 # **Privacy Policy – Kolenu**
 
-**Last updated:** February 13, 2026
+**Last updated:** March 3, 2026
 
 Kolenu ("the App") is a religious and educational application designed to help users learn and practice Hebrew prayers through audio and text. We take your privacy seriously and intentionally minimize data collection.
 
-## **1. Information We Collect**
+## **Website (www.kolenu.net)**
+
+When you visit our website:
+
+* We use **Google Fonts** to display typography. Google may receive your IP address to deliver fonts. We do not use cookies or tracking scripts.
+* When you click "Submit a Recording" (volunteer form), you are directed to **Google Forms**. Your submission is processed by Google, and we receive the form responses to manage volunteer contributions. See [Google's privacy policy](https://policies.google.com/privacy) for how Form data is handled.
+* We do not use analytics, advertising, or third-party tracking on the website.
+
+## **1. Information We Collect (App)**
 
 Kolenu does **not** collect personal information.
 

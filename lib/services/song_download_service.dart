@@ -8,9 +8,6 @@ import '../config/cdn_config.dart';
 import '../config/env_config.dart';
 import 'cache_keys_service.dart';
 
-/// Per cloud.md: Mock for prototype. No receipt validation.
-bool isSubscribed() => true;
-
 /// Downloads song folders from CDN on demand. Supports atomic install.
 class SongDownloadService {
   SongDownloadService._();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/cdn_config.dart';
 import '../models/prayer.dart';
@@ -10,8 +11,8 @@ import '../services/default_playlist_service.dart';
 import '../services/last_played_service.dart';
 import '../services/prayer_service.dart' show PrayerIndex, PrayerService;
 import '../services/progress_service.dart';
-import '../services/song_download_service.dart'
-    show SongDownloadService, isSubscribed;
+import '../services/song_download_service.dart';
+import '../utils/url_validator.dart';
 import 'prayer_reader_screen.dart';
 import 'settings_screen.dart';
 
@@ -70,12 +71,25 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     if (!mounted || messages.isEmpty) return;
     for (final msg in messages) {
       if (!mounted) return;
+      final hasSafeLink =
+          msg.link != null && UrlValidator.isSafeToOpen(msg.link);
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(msg.title),
           content: SingleChildScrollView(child: Text(msg.body)),
           actions: [
+            if (hasSafeLink)
+              TextButton(
+                onPressed: () async {
+                  final uri = Uri.parse(msg.link!);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Learn more'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('OK'),
@@ -669,13 +683,6 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
         songFolderId,
       );
       if (!downloaded) {
-        if (!isSubscribed()) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Subscription required')),
-          );
-          return;
-        }
         final success = await _downloadAndOpenReader(
           item,
           songFolderId,

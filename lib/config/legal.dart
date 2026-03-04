@@ -23,7 +23,10 @@ class LegalText {
 
   static const String privacyPolicyTitle = 'Privacy Policy';
   static const String privacyPolicyContent =
-      'Kolenu does NOT collect personal information.\n\n'
+      'WEBSITE (www.kolenu.net): We use Google Fonts (Google may receive your IP). '
+      'The volunteer form uses Google Forms; we receive submissions to manage contributions. '
+      'No cookies or tracking. See Google\'s privacy policy for Form data.\n\n'
+      'APP: Kolenu does NOT collect personal information.\n\n'
       'We do NOT collect:\n'
       '• Name, email, or phone number\n'
       '• Account credentials\n'
