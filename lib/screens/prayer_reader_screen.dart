@@ -119,6 +119,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   File? _currentAudioFile; // Track temporary decrypted audio file for cleanup
   StreamSubscription<Duration>? _positionSub;
   int _currentWordIndex = -1;
+  double _currentContentSeconds = 0;
   int _currentPage = 0;
 
   /// Word hint mode: Hebrew only, or show translation/transliteration below each word.
@@ -383,6 +384,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       }
       setState(() {
         _currentWordIndex = newIndex;
+        _currentContentSeconds = secForSync;
       });
       if (content != null &&
           content.sentences.isNotEmpty &&
@@ -1263,8 +1265,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   Widget _buildWordChip(WordSegment w, int i) {
     final isCurrent = i == _currentWordIndex;
     final isTapped = i == _tappedWordIndex;
+    final progress = _wordProgressForCurrentWord(w, i);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 4),
       child: GestureDetector(
         onTap: () async {
           // Seek to word start and play if audio available
@@ -1281,6 +1284,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             if (mounted && _content != null) {
               setState(() {
                 _currentWordIndex = i;
+                _currentContentSeconds = w.start;
                 if (_content!.sentences.isNotEmpty) {
                   final sentence = _sentenceIndexForWord(_content!, i);
                   _currentPage = sentence ~/ _sentencesPerPage;
@@ -1297,37 +1301,68 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedScale(
-              scale: isCurrent ? 1.05 : 1.0,
-              duration: const Duration(milliseconds: 200),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
               curve: Curves.easeOut,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: isTapped
+                    ? Theme.of(context).colorScheme.surfaceContainerHighest
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
                   color: isCurrent
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : (isTapped
-                            ? Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest
-                            : null),
-                  borderRadius: BorderRadius.circular(20),
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+                  width: 1,
                 ),
-                child: Text(
-                  w.word,
-                  textDirection: TextDirection.rtl,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontSize: 24,
-                    height: 1.8,
-                    letterSpacing: 0.02,
-                    fontWeight: isCurrent ? FontWeight.w600 : null,
-                    color: isCurrent
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Theme.of(context).colorScheme.onSurface,
+              ),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      w.word,
+                      textDirection: TextDirection.rtl,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontSize: 24,
+                        height: 1.8,
+                        letterSpacing: 0.02,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: SizedBox(
+                        height: 3,
+                        child: Stack(
+                          children: [
+                            Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: FractionallySizedBox(
+                                widthFactor: progress,
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             if (_wordHintMode == WordHintMode.translation &&
@@ -1377,5 +1412,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         ),
       ),
     );
+  }
+
+  double _wordProgressForCurrentWord(WordSegment w, int index) {
+    if (index != _currentWordIndex) return 0;
+    final duration = w.end - w.start;
+    if (duration <= 0) return 1;
+    final sec = _currentContentSeconds + _syncLeadSeconds;
+    return ((sec - w.start) / duration).clamp(0.0, 1.0);
   }
 }
