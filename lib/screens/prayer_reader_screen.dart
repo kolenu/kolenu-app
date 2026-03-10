@@ -130,6 +130,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<bool>? _playingSub;
   late AnimationController _pulseController;
+  bool _controlsVisible = true;
+  Timer? _controlsAutoHideTimer;
+
+  static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -199,9 +203,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       if (mounted) {
         if (playing) {
           _pulseController.repeat(reverse: true);
+          _scheduleAutoHideControls();
         } else {
           _pulseController.stop();
           _pulseController.reset();
+          _cancelControlsAutoHide();
+          if (!_controlsVisible) {
+            setState(() => _controlsVisible = true);
+          }
         }
       }
     });
@@ -226,6 +235,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   @override
   void dispose() {
+    _cancelControlsAutoHide();
     _playingSub?.cancel();
     _pulseController.dispose();
     _positionSub?.cancel();
@@ -446,12 +456,42 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   Future<void> _play() async {
     await _player.play();
+    _scheduleAutoHideControls();
     setState(() {});
   }
 
   Future<void> _pause() async {
     await _player.pause();
+    _cancelControlsAutoHide();
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
     setState(() {});
+  }
+
+  void _cancelControlsAutoHide() {
+    _controlsAutoHideTimer?.cancel();
+    _controlsAutoHideTimer = null;
+  }
+
+  void _scheduleAutoHideControls() {
+    _cancelControlsAutoHide();
+    if (!_player.playing) return;
+    _controlsAutoHideTimer = Timer(_controlsAutoHideDelay, () {
+      if (!mounted || !_player.playing) return;
+      if (_controlsVisible) {
+        setState(() => _controlsVisible = false);
+      }
+    });
+  }
+
+  void _handleScreenTouch() {
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    if (_player.playing) {
+      _scheduleAutoHideControls();
+    }
   }
 
   Future<void> _setPlaybackSpeed(PlaybackSpeed speed) async {
@@ -493,6 +533,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    final controlsHiddenForFocus = _player.playing && !_controlsVisible;
     return Scaffold(
       appBar: AppBar(
         iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
@@ -545,123 +586,140 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             ],
           ],
         ),
-        actions: [
-          if (_content != null &&
-              _content!.words.isNotEmpty &&
-              _content!.audio != null &&
-              _audioError == null)
-            PopupMenuButton<WordHintMode>(
-              tooltip: 'Word hints',
-              onSelected: (mode) {
-                setState(() {
-                  _wordHintMode = mode;
-                  if (mode == WordHintMode.hebrewOnly) {
-                    _tappedWordIndex = null;
-                  }
-                });
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: WordHintMode.hebrewOnly,
-                  child: Row(
-                    children: [
-                      _WordHintIcon(mode: WordHintMode.hebrewOnly, size: 40),
-                      SizedBox(width: 12),
-                      Text('Hebrew Only'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: WordHintMode.translation,
-                  child: Row(
-                    children: [
-                      _WordHintIcon(mode: WordHintMode.translation, size: 40),
-                      SizedBox(width: 12),
-                      Text('Translation'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: WordHintMode.transliteration,
-                  child: Row(
-                    children: [
-                      _WordHintIcon(
-                        mode: WordHintMode.transliteration,
-                        size: 40,
+        actions: controlsHiddenForFocus
+            ? const []
+            : [
+                if (_content != null &&
+                    _content!.words.isNotEmpty &&
+                    _content!.audio != null &&
+                    _audioError == null)
+                  PopupMenuButton<WordHintMode>(
+                    tooltip: 'Word hints',
+                    onSelected: (mode) {
+                      setState(() {
+                        _wordHintMode = mode;
+                        if (mode == WordHintMode.hebrewOnly) {
+                          _tappedWordIndex = null;
+                        }
+                      });
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: WordHintMode.hebrewOnly,
+                        child: Row(
+                          children: [
+                            _WordHintIcon(
+                              mode: WordHintMode.hebrewOnly,
+                              size: 40,
+                            ),
+                            SizedBox(width: 12),
+                            Text('Hebrew Only'),
+                          ],
+                        ),
                       ),
-                      SizedBox(width: 12),
-                      Text('Transliteration'),
-                    ],
-                  ),
-                ),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: _WordHintIcon(mode: _wordHintMode, size: 28),
-              ),
-            ),
-          if (_content != null &&
-              _content!.audio != null &&
-              _audioError == null)
-            PopupMenuButton<PlaybackSpeed>(
-              tooltip: 'Playback speed',
-              initialValue: _playbackSpeed,
-              onSelected: _setPlaybackSpeed,
-              itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
-                final selected = speed == _playbackSpeed;
-                return PopupMenuItem<PlaybackSpeed>(
-                  value: speed,
-                  child: Row(
-                    children: [
-                      Icon(
-                        selected ? Icons.check_circle : Icons.circle_outlined,
-                        size: 20,
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.outline,
+                      const PopupMenuItem(
+                        value: WordHintMode.translation,
+                        child: Row(
+                          children: [
+                            _WordHintIcon(
+                              mode: WordHintMode.translation,
+                              size: 40,
+                            ),
+                            SizedBox(width: 12),
+                            Text('Translation'),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        speed.displayName,
-                        style: TextStyle(
-                          fontWeight: selected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                      const PopupMenuItem(
+                        value: WordHintMode.transliteration,
+                        child: Row(
+                          children: [
+                            _WordHintIcon(
+                              mode: WordHintMode.transliteration,
+                              size: 40,
+                            ),
+                            SizedBox(width: 12),
+                            Text('Transliteration'),
+                          ],
                         ),
                       ),
                     ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: _WordHintIcon(mode: _wordHintMode, size: 28),
+                    ),
                   ),
-                );
-              }).toList(),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  Icons.speed_rounded,
-                  size: 22,
-                  color: Theme.of(context).colorScheme.primary,
+                if (_content != null &&
+                    _content!.audio != null &&
+                    _audioError == null)
+                  PopupMenuButton<PlaybackSpeed>(
+                    tooltip: 'Playback speed',
+                    initialValue: _playbackSpeed,
+                    onSelected: _setPlaybackSpeed,
+                    itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
+                      final selected = speed == _playbackSpeed;
+                      return PopupMenuItem<PlaybackSpeed>(
+                        value: speed,
+                        child: Row(
+                          children: [
+                            Icon(
+                              selected
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                              size: 20,
+                              color: selected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.outline,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              speed.displayName,
+                              style: TextStyle(
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.speed_rounded,
+                        size: 22,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  tooltip: 'Settings',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-            },
-          ),
-        ],
+              ],
       ),
-      body: Container(
-        color: Theme.of(context).colorScheme.surface,
-        child: Directionality(
-          textDirection: TextDirection.rtl,
-          child: _buildBody(),
+      body: Listener(
+        onPointerDown: (_) => _handleScreenTouch(),
+        child: Container(
+          color: Theme.of(context).colorScheme.surface,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: _buildBody(),
+          ),
         ),
       ),
-      bottomNavigationBar: _content != null ? _buildPlayBar() : null,
+      bottomNavigationBar: _content != null && !controlsHiddenForFocus
+          ? _buildPlayBar()
+          : null,
     );
   }
 
