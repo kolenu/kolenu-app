@@ -1343,9 +1343,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         child: Stack(
                           children: [
                             Container(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
                             ),
                             Align(
                               alignment: Alignment.centerRight,
