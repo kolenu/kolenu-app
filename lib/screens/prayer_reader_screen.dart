@@ -132,8 +132,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   late AnimationController _pulseController;
   bool _controlsVisible = true;
   Timer? _controlsAutoHideTimer;
+  Timer? _tapRevealTimer;
+  int? _activePointerId;
+  Offset? _pointerDownPosition;
+  bool _pointerMoved = false;
 
   static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
+  static const Duration _tapRevealDebounce = Duration(milliseconds: 120);
+  static const double _tapMovementThreshold = 12.0;
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -236,6 +242,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   @override
   void dispose() {
     _cancelControlsAutoHide();
+    _tapRevealTimer?.cancel();
     _playingSub?.cancel();
     _pulseController.dispose();
     _positionSub?.cancel();
@@ -494,6 +501,52 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     }
   }
 
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_activePointerId != null) return;
+    _activePointerId = event.pointer;
+    _pointerDownPosition = event.position;
+    _pointerMoved = false;
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (event.pointer != _activePointerId || _pointerDownPosition == null) {
+      return;
+    }
+    if (_pointerMoved) return;
+    if ((event.position - _pointerDownPosition!).distance >=
+        _tapMovementThreshold) {
+      _pointerMoved = true;
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (event.pointer != _activePointerId) return;
+    final isTap = !_pointerMoved;
+    _resetPointerTracking();
+    if (isTap) {
+      _scheduleTapReveal();
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _activePointerId) return;
+    _resetPointerTracking();
+  }
+
+  void _resetPointerTracking() {
+    _activePointerId = null;
+    _pointerDownPosition = null;
+    _pointerMoved = false;
+  }
+
+  void _scheduleTapReveal() {
+    _tapRevealTimer?.cancel();
+    _tapRevealTimer = Timer(_tapRevealDebounce, () {
+      if (!mounted) return;
+      _handleScreenTouch();
+    });
+  }
+
   Future<void> _setPlaybackSpeed(PlaybackSpeed speed) async {
     setState(() => _playbackSpeed = speed);
     await _player.setSpeed(speed.rate);
@@ -708,7 +761,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               ],
       ),
       body: Listener(
-        onPointerDown: (_) => _handleScreenTouch(),
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
         child: Container(
           color: Theme.of(context).colorScheme.surface,
           child: Directionality(
@@ -1026,7 +1082,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       );
     }
     final content = _content!;
-    const padding = 24.0;
+    const padding = 16.0;
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewportHeight = constraints.maxHeight;
@@ -1103,44 +1159,28 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 ),
               ],
               const SizedBox(height: 24),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                        color: Colors.black.withValues(alpha: 0.06),
-                      ),
-                    ],
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: minTextHeight,
-                      maxWidth: viewportWidth - padding * 2 - 48,
-                    ),
-                    child: Directionality(
-                      textDirection: TextDirection.rtl,
-                      child: ValueListenableBuilder<TextAlignmentOption>(
-                        valueListenable:
-                            TextAlignmentPreferenceService.optionNotifier,
-                        builder: (context, alignment, _) {
-                          return FittedBox(
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: viewportWidth - padding * 2 - 48,
-                              ),
-                              child: _buildWordByWord(content, alignment),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: minTextHeight,
+                  maxWidth: viewportWidth - padding * 2,
+                ),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: ValueListenableBuilder<TextAlignmentOption>(
+                    valueListenable:
+                        TextAlignmentPreferenceService.optionNotifier,
+                    builder: (context, alignment, _) {
+                      return FittedBox(
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: viewportWidth - padding * 2,
+                          ),
+                          child: _buildWordByWord(content, alignment),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
