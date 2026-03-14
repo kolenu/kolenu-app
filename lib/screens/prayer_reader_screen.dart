@@ -599,48 +599,55 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             height: 1,
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'Back',
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Column(
+        automaticallyImplyLeading: !controlsHiddenForFocus,
+        leading: controlsHiddenForFocus
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back',
+              ),
+        title: controlsHiddenForFocus
+            ? null
+            : Row(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    _content?.title ?? widget.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          _content?.title ?? widget.title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        Directionality(
+                          textDirection: TextDirection.rtl,
+                          child: Text(
+                            _content?.titleHebrew ?? widget.titleHebrew,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                  fontSize: 15,
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Text(
-                      _content?.titleHebrew ?? widget.titleHebrew,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.secondary,
-                        fontSize: 15,
-                      ),
+                  if (widget.localSongFolderId != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.offline_pin_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                  ),
+                  ],
                 ],
               ),
-            ),
-            if (widget.localSongFolderId != null) ...[
-              const SizedBox(width: 8),
-              Icon(
-                Icons.offline_pin_rounded,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ],
-          ],
-        ),
         actions: controlsHiddenForFocus
             ? const []
             : [
@@ -1340,24 +1347,19 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       borderRadius: BorderRadius.circular(2),
                       child: SizedBox(
                         height: 3,
-                        child: Stack(
-                          children: [
-                            Container(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                            ),
-                            Align(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Align(
                               alignment: Alignment.centerRight,
-                              child: FractionallySizedBox(
-                                widthFactor: progress,
-                                alignment: Alignment.centerRight,
+                              child: SizedBox(
+                                width: constraints.maxWidth * progress,
+                                height: 3,
                                 child: Container(
                                   color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
-                            ),
-                          ],
+                            );
+                          },
                         ),
                       ),
                     ),
