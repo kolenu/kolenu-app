@@ -147,6 +147,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   static const double _minPrayerScale = 0.6;
   static const double _maxPrayerScale = 2.0;
 
+  /// After this many loops, ask if user is still listening (saves battery).
+  static const int _stillListeningThreshold = 10;
+
+  int _singleLoopCount = 0;
+  static int _playlistCycleCount = 0;
+  bool _waitingForStillListeningResponse = false;
+
   static const String _prayersAssetPath = 'assets/audio';
 
   /// Base path for this prayer's assets (e.g. "shema" when file is "shema/content.json", else "").
@@ -188,6 +195,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     _loadPlaybackSpeed();
     _loadLoopPreference();
     _loadContent();
+    if (widget.playlistIds == null) {
+      _playlistCycleCount = 0;
+    }
   }
 
   Future<void> _loadPlaybackSpeed() async {
@@ -358,6 +368,27 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         _currentContentSeconds = secForSync;
       });
       if (newIndex <= 0 && wasAtEnd) {
+        if (_playbackMode == PlaybackMode.loopOne) {
+          _singleLoopCount++;
+          if (_singleLoopCount >= _stillListeningThreshold &&
+              !_waitingForStillListeningResponse) {
+            _waitingForStillListeningResponse = true;
+            _pause();
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              final keepGoing = await _showStillListeningDialog(
+                isLoopOne: true,
+              );
+              if (!mounted) return;
+              _waitingForStillListeningResponse = false;
+              if (keepGoing) {
+                _singleLoopCount = 0;
+                await _play();
+              }
+              if (mounted) setState(() {});
+            });
+          }
+        }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _scrollController.animateTo(
@@ -376,7 +407,29 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         if (_playbackMode == PlaybackMode.loopPlaylist &&
             widget.playlistIds != null &&
             widget.playlistIds!.length > 1) {
-          _advanceToNextInPlaylist();
+          final ids = widget.playlistIds!;
+          final nextIndex = (widget.currentPlaylistIndex + 1) % ids.length;
+          if (nextIndex == 0) {
+            _playlistCycleCount++;
+          }
+          if (nextIndex == 0 &&
+              _playlistCycleCount >= _stillListeningThreshold &&
+              !_waitingForStillListeningResponse) {
+            _waitingForStillListeningResponse = true;
+            await _pause();
+            if (!mounted) return;
+            final keepGoing = await _showStillListeningDialog(isLoopOne: false);
+            if (!mounted) return;
+            _waitingForStillListeningResponse = false;
+            if (keepGoing) {
+              _playlistCycleCount = 0;
+              _advanceToNextInPlaylist();
+            } else {
+              Navigator.of(context).pop();
+            }
+          } else {
+            _advanceToNextInPlaylist();
+          }
         } else if (_playbackMode == PlaybackMode.playOnce) {
           await _player.stop();
           if (mounted) {
@@ -460,6 +513,41 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     setState(() {});
   }
 
+  /// Returns true if user wants to keep playing, false to stop.
+  Future<bool> _showStillListeningDialog({required bool isLoopOne}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Still learning?'),
+        content: Text(
+          isLoopOne
+              ? 'You\'ve repeated this prayer $_stillListeningThreshold times. '
+                    'Are you still here? Tap "Keep going" to continue, or "Pause" if you\'re done for now.'
+              : 'You\'ve gone through the playlist $_stillListeningThreshold times. '
+                    'Are you still here? Tap "Keep going" to continue, or "Pause" if you\'re done for now.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Pause'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Keep going'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _resetLoopCountOnUserActivity() {
+    if (_waitingForStillListeningResponse) return;
+    _singleLoopCount = 0;
+    _playlistCycleCount = 0;
+  }
+
   void _cancelControlsAutoHide() {
     _controlsAutoHideTimer?.cancel();
     _controlsAutoHideTimer = null;
@@ -486,6 +574,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   }
 
   void _handlePointerDown(PointerDownEvent event) {
+    _resetLoopCountOnUserActivity();
     if (_activePointerId != null) return;
     _activePointerId = event.pointer;
     _pointerDownPosition = event.position;
@@ -500,6 +589,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     if ((event.position - _pointerDownPosition!).distance >=
         _tapMovementThreshold) {
       _pointerMoved = true;
+      _resetLoopCountOnUserActivity();
     }
   }
 

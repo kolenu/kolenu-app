@@ -19,15 +19,26 @@ dart format .
 
 RUN_MODE_FLAG=()
 if [[ "$FLUTTER_CMD" == "run" ]]; then
-    read -rp "Choose mode [debug/release] (default: debug): " RUN_MODE
-    RUN_MODE="${RUN_MODE:-debug}"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    RUN_MODE_FILE="$SCRIPT_DIR/.run_mode"
+    if [[ -f "$RUN_MODE_FILE" ]]; then
+        DEFAULT_MODE="$(cat "$RUN_MODE_FILE" | tr -d '[:space:]')"
+        [[ "$DEFAULT_MODE" != "debug" && "$DEFAULT_MODE" != "release" ]] && DEFAULT_MODE="debug"
+    else
+        DEFAULT_MODE="debug"
+    fi
+
+    read -rp "Choose mode [debug/release] (default: $DEFAULT_MODE, Enter to use): " RUN_MODE
+    RUN_MODE="${RUN_MODE:-$DEFAULT_MODE}"
 
     case "$RUN_MODE" in
         release)
             RUN_MODE_FLAG=(--release)
+            echo "release" > "$RUN_MODE_FILE"
             ;;
         debug)
             RUN_MODE_FLAG=(--debug)
+            echo "debug" > "$RUN_MODE_FILE"
             ;;
         *)
             echo "Invalid mode '$RUN_MODE'. Please choose 'debug' or 'release'."
