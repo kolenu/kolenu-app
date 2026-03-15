@@ -7,8 +7,7 @@ const String _keyFontScale = 'font_scale';
 enum FontSizeOption {
   small(0.85, 'Small'),
   medium(1.0, 'Medium'),
-  large(1.2, 'Large'),
-  extraLarge(1.4, 'Extra Large');
+  large(1.2, 'Large');
 
   const FontSizeOption(this.scale, this.label);
   final double scale;

@@ -121,10 +121,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   int _currentWordIndex = -1;
   double _currentContentSeconds = 0;
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _currentWordKey = GlobalKey();
 
   /// Word hint mode: Hebrew only, or show translation/transliteration below each word.
   WordHintMode _wordHintMode = WordHintMode.hebrewOnly;
   int? _tappedWordIndex;
+  double _prayerTextScale = 1.0;
+  double _scaleStart = 1.0;
   PlaybackSpeed _playbackSpeed = PlaybackSpeed.normal;
   PlaybackMode _playbackMode = PlaybackMode.playOnce;
   bool _playButtonPressed = false;
@@ -141,6 +144,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
   static const Duration _tapRevealDebounce = Duration(milliseconds: 120);
   static const double _tapMovementThreshold = 12.0;
+  static const double _minPrayerScale = 0.6;
+  static const double _maxPrayerScale = 2.0;
 
   static const String _prayersAssetPath = 'assets/audio';
 
@@ -335,6 +340,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       }
       final secForSync = sec;
       final newIndex = _wordIndexAtPosition(secForSync);
+
+      // Pronounce-word-only mode: pause when we reach the word's end
       // In play-once mode, stay on last word when past end. In loop-one, allow
       // pointer to jump back when audio restarts.
       if (_playbackMode != PlaybackMode.loopOne &&
@@ -524,6 +531,90 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     });
   }
 
+  void _showTapTips(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'How to use',
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              _buildTipRow(
+                ctx,
+                Icons.touch_app_rounded,
+                'Tap a word',
+                'Play full audio from that word',
+              ),
+              const SizedBox(height: 12),
+              _buildTipRow(
+                ctx,
+                Icons.play_arrow_rounded,
+                'Play button',
+                'Play full audio from current position',
+              ),
+              const SizedBox(height: 12),
+              _buildTipRow(
+                ctx,
+                Icons.pinch_rounded,
+                'Pinch to zoom',
+                'Use two fingers to zoom the prayer text in or out',
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Got it'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipRow(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 24, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _setPlaybackSpeed(PlaybackSpeed speed) async {
     setState(() => _playbackSpeed = speed);
     await _player.setSpeed(speed.rate);
@@ -566,7 +657,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
           leading: controlsHiddenForFocus
               ? null
               : IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 26),
                   onPressed: () => Navigator.of(context).pop(),
                   tooltip: 'Back',
                 ),
@@ -601,21 +692,18 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         ],
                       ),
                     ),
-                    if (widget.localSongFolderId != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.offline_pin_rounded,
-                        size: 18,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ],
                   ],
                 ),
           actions: controlsHiddenForFocus
               ? const []
               : [
                   IconButton(
-                    icon: const Icon(Icons.settings_outlined),
+                    icon: const Icon(Icons.help_outline_rounded, size: 26),
+                    tooltip: 'Tips',
+                    onPressed: () => _showTapTips(context),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined, size: 26),
                     tooltip: 'Settings',
                     onPressed: () {
                       Navigator.push(
@@ -628,30 +716,32 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   ),
                 ],
         ),
-        body: Stack(
-          children: [
-            Container(
-              color: Theme.of(context).colorScheme.surface,
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: _buildBody(),
-              ),
-            ),
-            if (controlsHiddenForFocus && _content != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 80,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    setState(() => _controlsVisible = true);
-                    _scheduleAutoHideControls();
-                  },
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Container(
+                color: Theme.of(context).colorScheme.surface,
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: _buildBody(),
                 ),
               ),
-          ],
+              if (controlsHiddenForFocus && _content != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 80,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      setState(() => _controlsVisible = true);
+                      _scheduleAutoHideControls();
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
         bottomNavigationBar: _content != null && !controlsHiddenForFocus
             ? _buildPlayBar()
@@ -694,162 +784,97 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (hasAudio)
-                  Semantics(
-                    label: playing ? 'Pause' : 'Play',
+                Tooltip(
+                  message: 'Playback mode: ${_playbackMode.label}',
+                  child: Semantics(
+                    label: 'Playback mode: ${_playbackMode.label}',
                     button: true,
-                    child: GestureDetector(
-                      onTapDown: (_) =>
-                          setState(() => _playButtonPressed = true),
-                      onTapUp: (_) =>
-                          setState(() => _playButtonPressed = false),
-                      onTapCancel: () =>
-                          setState(() => _playButtonPressed = false),
-                      child: AnimatedScale(
-                        scale: _playButtonPressed ? 0.96 : 1.0,
-                        duration: const Duration(milliseconds: 100),
-                        child: AnimatedBuilder(
-                          animation: _pulseController,
-                          builder: (context, child) {
-                            final pulseScale = playing
-                                ? 1.0 + (_pulseController.value * 0.02)
-                                : 1.0;
-                            return Transform.scale(
-                              scale: pulseScale,
-                              child: child,
-                            );
-                          },
-                          child: Material(
-                            elevation: 3,
-                            color: Theme.of(context).colorScheme.primary,
-                            shadowColor: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(20),
-                            child: InkWell(
-                              onTap: () async {
-                                if (playing) {
-                                  await _pause();
-                                } else {
-                                  await _play();
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(20),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 10,
+                    child: IconButton(
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(44, 44),
+                      ),
+                      icon: Icon(
+                        _playbackMode == PlaybackMode.loopOne
+                            ? Icons.repeat_one_rounded
+                            : _playbackMode == PlaybackMode.loopPlaylist
+                            ? Icons.repeat_rounded
+                            : Icons.replay_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 26,
+                      ),
+                      onPressed: () async {
+                        final chosen = await showModalBottomSheet<PlaybackMode>(
+                          context: context,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    'Playback mode',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      playing
-                                          ? Icons.graphic_eq_rounded
-                                          : Icons.play_arrow_rounded,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimary,
-                                      size: 24,
+                                ...PlaybackMode.values.map(
+                                  (m) => ListTile(
+                                    title: Text(m.label),
+                                    subtitle: Text(
+                                      m == PlaybackMode.playOnce
+                                          ? 'Stop after one play'
+                                          : m == PlaybackMode.loopOne
+                                          ? 'Repeat this prayer'
+                                          : 'Continue to next in playlist',
+                                      style: Theme.of(ctx).textTheme.bodySmall,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      playing ? 'Pause' : 'Play',
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                    trailing: _playbackMode == m
+                                        ? Icon(
+                                            Icons.check,
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.primary,
+                                          )
+                                        : null,
+                                    onTap: () => Navigator.pop(ctx, m),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (hasAudio) const SizedBox(width: 8),
-                Semantics(
-                  label: 'Playback mode: ${_playbackMode.label}',
-                  button: true,
-                  child: IconButton(
-                    style: IconButton.styleFrom(
-                      padding: const EdgeInsets.all(8),
-                      minimumSize: const Size(36, 36),
-                    ),
-                    icon: Icon(
-                      _playbackMode == PlaybackMode.loopOne
-                          ? Icons.repeat_one_rounded
-                          : _playbackMode == PlaybackMode.loopPlaylist
-                          ? Icons.repeat_rounded
-                          : Icons.replay_rounded,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 22,
-                    ),
-                    onPressed: () async {
-                      final chosen = await showModalBottomSheet<PlaybackMode>(
-                        context: context,
-                        builder: (ctx) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text(
-                                  'Playback mode',
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              ...PlaybackMode.values.map(
-                                (m) => ListTile(
-                                  title: Text(m.label),
-                                  trailing: _playbackMode == m
-                                      ? Icon(
-                                          Icons.check,
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.primary,
-                                        )
-                                      : null,
-                                  onTap: () => Navigator.pop(ctx, m),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                      if (chosen != null && mounted) {
-                        setState(() => _playbackMode = chosen);
-                        await LoopPreferenceService.setPlaybackMode(chosen);
-                        await _player.setLoopMode(
-                          chosen == PlaybackMode.loopOne
-                              ? LoopMode.one
-                              : LoopMode.off,
                         );
-                        await _playerStateSub?.cancel();
-                        _playerStateSub = _player.playerStateStream.listen((
-                          state,
-                        ) async {
-                          if (!mounted) return;
-                          if (state.processingState ==
-                              ProcessingState.completed) {
-                            if (_playbackMode == PlaybackMode.loopPlaylist &&
-                                widget.playlistIds != null &&
-                                widget.playlistIds!.length > 1) {
-                              _advanceToNextInPlaylist();
-                            } else if (_playbackMode == PlaybackMode.playOnce) {
-                              await _player.stop();
-                              if (mounted) setState(() {});
+                        if (chosen != null && mounted) {
+                          setState(() => _playbackMode = chosen);
+                          await LoopPreferenceService.setPlaybackMode(chosen);
+                          await _player.setLoopMode(
+                            chosen == PlaybackMode.loopOne
+                                ? LoopMode.one
+                                : LoopMode.off,
+                          );
+                          _playerStateSub?.cancel();
+                          _playerStateSub = _player.playerStateStream.listen((
+                            state,
+                          ) async {
+                            if (!mounted) return;
+                            if (state.processingState ==
+                                ProcessingState.completed) {
+                              if (_playbackMode == PlaybackMode.loopPlaylist &&
+                                  widget.playlistIds != null &&
+                                  widget.playlistIds!.length > 1) {
+                                _advanceToNextInPlaylist();
+                              } else if (_playbackMode ==
+                                  PlaybackMode.playOnce) {
+                                await _player.stop();
+                                if (mounted) setState(() {});
+                              }
                             }
-                          }
-                        });
-                      }
-                    },
+                          });
+                        }
+                      },
+                    ),
                   ),
                 ),
                 if (_content != null &&
@@ -909,16 +934,99 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         ),
                       ),
                     ],
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: _WordHintIcon(mode: _wordHintMode, size: 22),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: _WordHintIcon(mode: _wordHintMode, size: 28),
+                      ),
+                    ),
+                  ),
+                ],
+                if (hasAudio) ...[
+                  const SizedBox(width: 8),
+                  Semantics(
+                    label: playing ? 'Pause' : 'Play',
+                    button: true,
+                    child: GestureDetector(
+                      onTapDown: (_) =>
+                          setState(() => _playButtonPressed = true),
+                      onTapUp: (_) =>
+                          setState(() => _playButtonPressed = false),
+                      onTapCancel: () =>
+                          setState(() => _playButtonPressed = false),
+                      child: AnimatedScale(
+                        scale: _playButtonPressed ? 0.96 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        child: AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) {
+                            final pulseScale = playing
+                                ? 1.0 + (_pulseController.value * 0.02)
+                                : 1.0;
+                            return Transform.scale(
+                              scale: pulseScale,
+                              child: child,
+                            );
+                          },
+                          child: Material(
+                            elevation: 3,
+                            color: Theme.of(context).colorScheme.primary,
+                            shadowColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              onTap: () async {
+                                if (playing) {
+                                  await _pause();
+                                } else {
+                                  await _play();
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      playing
+                                          ? Icons.graphic_eq_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
+                                      size: 28,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      playing ? 'Pause' : 'Play',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
                 if (_content != null &&
                     _content!.audio != null &&
                     _audioError == null) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   PopupMenuButton<PlaybackSpeed>(
                     tooltip: 'Playback speed',
                     padding: EdgeInsets.zero,
@@ -952,13 +1060,46 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         ),
                       );
                     }).toList(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.speed_rounded,
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: Icon(
+                          Icons.speed_rounded,
+                          size: 26,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (_content != null &&
+                    _content!.words.isNotEmpty &&
+                    _currentWordIndex >= 0) ...[
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: 'Scroll to current word',
+                    child: IconButton(
+                      style: IconButton.styleFrom(
+                        padding: const EdgeInsets.all(8),
+                        minimumSize: const Size(44, 44),
+                      ),
+                      icon: Icon(
+                        Icons.center_focus_strong_rounded,
                         size: 20,
                         color: Theme.of(context).colorScheme.primary,
                       ),
+                      onPressed: () {
+                        final ctx = _currentWordKey.currentContext;
+                        if (ctx != null) {
+                          Scrollable.ensureVisible(
+                            ctx,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeInOut,
+                            alignment: 0.3,
+                          );
+                        }
+                      },
                     ),
                   ),
                 ],
@@ -1090,28 +1231,40 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 ),
               ],
               const SizedBox(height: 24),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: minTextHeight,
-                  maxWidth: viewportWidth - padding * 2,
-                ),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: ValueListenableBuilder<TextAlignmentOption>(
-                    valueListenable:
-                        TextAlignmentPreferenceService.optionNotifier,
-                    builder: (context, alignment, _) {
-                      return FittedBox(
-                        fit: BoxFit.contain,
-                        alignment: Alignment.center,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: viewportWidth - padding * 2,
-                          ),
-                          child: _buildWordByWord(content, alignment),
-                        ),
-                      );
-                    },
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (_) => _scaleStart = _prayerTextScale,
+                onScaleUpdate: (d) {
+                  setState(() {
+                    _prayerTextScale = (_scaleStart * d.scale).clamp(
+                      _minPrayerScale,
+                      _maxPrayerScale,
+                    );
+                  });
+                },
+                child: MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.noScaling),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: minTextHeight,
+                      maxWidth: viewportWidth - padding * 2,
+                    ),
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: ValueListenableBuilder<TextAlignmentOption>(
+                        valueListenable:
+                            TextAlignmentPreferenceService.optionNotifier,
+                        builder: (context, alignment, _) {
+                          return _buildWordByWord(
+                            content,
+                            alignment,
+                            _prayerTextScale,
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1125,6 +1278,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   Widget _buildWordByWord(
     PrayerContent content,
     TextAlignmentOption alignment,
+    double scale,
   ) {
     final textAlign = alignment.textAlign;
     final wrapAlign = alignment == TextAlignmentOption.rtl
@@ -1149,7 +1303,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   textDirection: TextDirection.rtl,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     height: 1.8,
-                    fontSize: i == 0 ? 30 : 26,
+                    fontSize: (i == 0 ? 30.0 : 26.0) * scale,
                     letterSpacing: 0.02,
                     fontWeight: i == 0 ? FontWeight.bold : FontWeight.normal,
                     color: i == 0
@@ -1170,7 +1324,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         textDirection: TextDirection.rtl,
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           height: 1.8,
-          fontSize: 24,
+          fontSize: 24 * scale,
           letterSpacing: 0.02,
         ),
         textAlign: textAlign,
@@ -1182,20 +1336,27 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       runAlignment: wrapAlign,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (var i = 0; i < words.length; i++) _buildWordChip(words[i], i),
+        for (var i = 0; i < words.length; i++)
+          _buildWordChip(
+            words[i],
+            i,
+            scale,
+            key: i == _currentWordIndex ? _currentWordKey : null,
+          ),
       ],
     );
   }
 
-  Widget _buildWordChip(WordSegment w, int i) {
+  Widget _buildWordChip(WordSegment w, int i, double scale, {Key? key}) {
     final isCurrent = i == _currentWordIndex;
     final isTapped = i == _tappedWordIndex;
     final progress = _wordProgressForCurrentWord(w, i);
     return Padding(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 4),
       child: GestureDetector(
         onTap: () async {
-          // Seek to word start and play if audio available
+          // Single tap: play full audio from this word (also used to show controls)
           if (_content != null && w.start >= 0) {
             final offset = _content!.audioOffsetSeconds;
             final seekPos = Duration(
@@ -1205,7 +1366,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             if (!_player.playing) {
               await _player.play();
             }
-            // Update pointer immediately so it shows without waiting for position stream
             if (mounted && _content != null) {
               setState(() {
                 _currentWordIndex = i;
@@ -1213,7 +1373,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               });
             }
           } else {
-            // No audio, just toggle translation display
             setState(() {
               _tappedWordIndex = _tappedWordIndex == i ? null : i;
             });
@@ -1246,7 +1405,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       w.word,
                       textDirection: TextDirection.rtl,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontSize: 24,
+                        fontSize: 24 * scale,
                         height: 1.8,
                         letterSpacing: 0.02,
                         color: Theme.of(context).colorScheme.onSurface,
@@ -1305,6 +1464,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   child: Text(
                     w.translation!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 12 * scale,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     textDirection: TextDirection.ltr,
@@ -1335,6 +1495,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                         ? w.transliteration!
                         : TransliterationService.transliterate(w.word),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 12 * scale,
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     textDirection: TextDirection.ltr,
@@ -1353,6 +1514,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       w.transliteration ??
                       TransliterationService.transliterate(w.word),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12 * scale,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   textDirection: TextDirection.ltr,

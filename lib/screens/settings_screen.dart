@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../config/cdn_config.dart';
-import '../data/playback_mode.dart';
 import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
-import '../services/loop_preference_service.dart';
 import 'playlist_screen.dart';
 import '../services/font_size_preference_service.dart';
 import '../services/orientation_preference_service.dart';
@@ -23,7 +21,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _lockPortrait = false;
   FontSizeOption _fontSize = FontSizeOption.medium;
   TextAlignmentOption _textAlignment = TextAlignmentOption.rtl;
-  PlaybackMode _playbackMode = PlaybackMode.playOnce;
 
   @override
   void initState() {
@@ -35,13 +32,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final lock = await OrientationPreferenceService.getLockPortrait();
     final font = await FontSizePreferenceService.getOption();
     final alignment = await TextAlignmentPreferenceService.getOption();
-    final mode = await LoopPreferenceService.getPlaybackMode();
     if (mounted) {
       setState(() {
         _lockPortrait = lock;
         _fontSize = font;
         _textAlignment = alignment;
-        _playbackMode = mode;
       });
     }
   }
@@ -60,8 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return 18;
       case FontSizeOption.large:
         return 22;
-      case FontSizeOption.extraLarge:
-        return 26;
     }
   }
 
@@ -167,69 +160,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     },
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text('REPEAT', style: sectionLabelStyle),
-            const SizedBox(height: 8),
-            Card(
-              margin: EdgeInsets.zero,
-              child: ListTile(
-                title: const Text('Playback mode'),
-                subtitle: Text(_playbackMode.label),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  final chosen = await showModalBottomSheet<PlaybackMode>(
-                    context: context,
-                    builder: (ctx) {
-                      final t = Theme.of(ctx);
-                      final cs = t.colorScheme;
-                      return SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 8),
-                            Center(
-                              child: Container(
-                                width: 32,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: cs.onSurfaceVariant.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                              child: Text(
-                                'Playback mode',
-                                style: t.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const Divider(height: 1),
-                            ...PlaybackMode.values.map(
-                              (m) => ListTile(
-                                title: Text(m.label),
-                                trailing: _playbackMode == m
-                                    ? Icon(Icons.check, color: cs.primary)
-                                    : null,
-                                onTap: () => Navigator.pop(ctx, m),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                  if (chosen != null && mounted) {
-                    setState(() => _playbackMode = chosen);
-                    await LoopPreferenceService.setPlaybackMode(chosen);
-                  }
-                },
               ),
             ),
             const SizedBox(height: 20),
