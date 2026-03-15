@@ -1372,25 +1372,59 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 w.translation!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  w.translation!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
                   ),
-                  textDirection: TextDirection.ltr,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    w.translation!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    textDirection: TextDirection.ltr,
+                  ),
                 ),
               )
             else if (_wordHintMode == WordHintMode.transliteration)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  w.transliteration != null && w.transliteration!.isNotEmpty
-                      ? w.transliteration!
-                      : TransliterationService.transliterate(w.word),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
                   ),
-                  textDirection: TextDirection.ltr,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isCurrent
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    w.transliteration != null && w.transliteration!.isNotEmpty
+                        ? w.transliteration!
+                        : TransliterationService.transliterate(w.word),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    textDirection: TextDirection.ltr,
+                  ),
                 ),
               )
             else if (isTapped &&
