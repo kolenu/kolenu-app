@@ -11,6 +11,9 @@ set -e
 FLUTTER_CMD="${1:-run}"
 shift || true
 
+# Resolve packages so analysis_options.yaml (flutter_lints) can be read
+flutter pub get
+
 echo "🧹 Applying Dart formatting..."
 dart format .
 

@@ -120,7 +120,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   StreamSubscription<Duration>? _positionSub;
   int _currentWordIndex = -1;
   double _currentContentSeconds = 0;
-  int _currentPage = 0;
+  final ScrollController _scrollController = ScrollController();
 
   /// Word hint mode: Hebrew only, or show translation/transliteration below each word.
   WordHintMode _wordHintMode = WordHintMode.hebrewOnly;
@@ -149,47 +149,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     final f = widget.prayerFile;
     final i = f.lastIndexOf('/');
     return i >= 0 ? f.substring(0, i) : '';
-  }
-
-  /// Number of sentences shown on each screen page (more text per page).
-  static const int _sentencesPerPage = 2;
-
-  int _pageCount(PrayerContent c) {
-    if (c.sentences.isEmpty) return c.words.isEmpty ? 1 : 1;
-    return (c.sentences.length + _sentencesPerPage - 1) ~/ _sentencesPerPage;
-  }
-
-  int _startWordIndexForPage(PrayerContent c, int page) {
-    if (c.words.isEmpty) return 0;
-    if (c.sentences.isEmpty) return 0;
-    if (page <= 0) return 0;
-    final firstSentence = (page * _sentencesPerPage).clamp(
-      0,
-      c.sentences.length - 1,
-    );
-    if (firstSentence == 0) return 0;
-    final endPrev = c.sentenceEndWordIndex(firstSentence - 1);
-    return endPrev < 0 ? 0 : endPrev + 1;
-  }
-
-  int _endWordIndexForPage(PrayerContent c, int page) {
-    if (c.words.isEmpty) return 0;
-    if (c.sentences.isEmpty) return c.words.length - 1;
-    final lastSentence = ((page + 1) * _sentencesPerPage - 1).clamp(
-      0,
-      c.sentences.length - 1,
-    );
-    final end = c.sentenceEndWordIndex(lastSentence);
-    return end < 0 ? c.words.length - 1 : end;
-  }
-
-  int _sentenceIndexForWord(PrayerContent c, int wordIndex) {
-    if (c.sentences.isEmpty || wordIndex < 0) return 0;
-    for (var s = 0; s < c.sentences.length; s++) {
-      final endIdx = c.sentenceEndWordIndex(s);
-      if (endIdx >= 0 && wordIndex <= endIdx) return s;
-    }
-    return (c.sentences.length - 1).clamp(0, c.sentences.length);
   }
 
   /// Duration of the text content in seconds (last word end). When audio is longer, we loop.
@@ -242,6 +201,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _cancelControlsAutoHide();
     _tapRevealTimer?.cancel();
     _playingSub?.cancel();
@@ -382,20 +342,24 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
           newIndex < _currentWordIndex) {
         return;
       }
+      final wasAtEnd =
+          content != null &&
+          content.words.isNotEmpty &&
+          _currentWordIndex == content.words.length - 1;
       setState(() {
         _currentWordIndex = newIndex;
         _currentContentSeconds = secForSync;
       });
-      if (content != null &&
-          content.sentences.isNotEmpty &&
-          _currentWordIndex >= 0) {
-        final sentence = _sentenceIndexForWord(content, _currentWordIndex);
-        final pageForSentence = sentence ~/ _sentencesPerPage;
-        if (pageForSentence != _currentPage) {
-          setState(() {
-            _currentPage = pageForSentence;
-          });
-        }
+      if (newIndex <= 0 && wasAtEnd) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollController.animateTo(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
+        });
       }
     });
     await _playerStateSub?.cancel();
@@ -408,7 +372,18 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
           _advanceToNextInPlaylist();
         } else if (_playbackMode == PlaybackMode.playOnce) {
           await _player.stop();
-          if (mounted) setState(() {});
+          if (mounted) {
+            setState(() => _currentWordIndex = -1);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                );
+              }
+            });
+          }
         }
       }
     });
@@ -555,108 +530,336 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     await PlaybackSpeedPreferenceService.setSpeed(speed);
   }
 
-  Future<void> _seekToContentTime(double contentSec) async {
-    final content = _content;
-    if (content == null) return;
-    final duration = _contentDurationSeconds(content);
-    if (duration <= 0) return;
-    final offset = content.audioOffsetSeconds;
-    final pos = _player.position.inMilliseconds / 1000.0;
-    final contentPos = (pos - offset).clamp(0.0, double.infinity);
-    final cycle = contentPos >= duration ? (contentPos / duration).floor() : 0;
-    final seekSec = offset + cycle * duration + contentSec;
-    await _player.seek(Duration(milliseconds: (seekSec * 1000).round()));
-  }
-
-  Future<void> _goToPage(int page) async {
-    final content = _content;
-    if (content == null) return;
-    final pageCount = _pageCount(content);
-    final newPage = page.clamp(0, pageCount - 1);
-    if (!mounted) return;
-    setState(() => _currentPage = newPage);
-    if (content.audio != null &&
-        _audioError == null &&
-        content.words.isNotEmpty) {
-      final startWordIdx = _startWordIndexForPage(content, newPage);
-      if (startWordIdx < content.words.length) {
-        final startSec = content.words[startWordIdx].start;
-        await _seekToContentTime(startSec);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final controlsHiddenForFocus = _player.playing && !_controlsVisible;
-    return Scaffold(
-      appBar: AppBar(
-        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.primary),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
-            height: 1,
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      behavior: HitTestBehavior.translucent,
+      child: Scaffold(
+        appBar: AppBar(
+          iconTheme: IconThemeData(
+            color: Theme.of(context).colorScheme.primary,
           ),
-        ),
-        automaticallyImplyLeading: !controlsHiddenForFocus,
-        leading: controlsHiddenForFocus
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                onPressed: () => Navigator.of(context).pop(),
-                tooltip: 'Back',
-              ),
-        title: controlsHiddenForFocus
-            ? null
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          _content?.title ?? widget.title,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(
+              color: Theme.of(
+                context,
+              ).colorScheme.outline.withValues(alpha: 0.3),
+              height: 1,
+            ),
+          ),
+          automaticallyImplyLeading: !controlsHiddenForFocus,
+          flexibleSpace: controlsHiddenForFocus
+              ? GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    setState(() => _controlsVisible = true);
+                    _scheduleAutoHideControls();
+                  },
+                )
+              : null,
+          leading: controlsHiddenForFocus
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Back',
+                ),
+          title: controlsHiddenForFocus
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            _content?.title ?? widget.title,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Text(
+                              _content?.titleHebrew ?? widget.titleHebrew,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary,
+                                    fontSize: 15,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.localSongFolderId != null) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.offline_pin_rounded,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
+                  ],
+                ),
+          actions: controlsHiddenForFocus
+              ? const []
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: 'Settings',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
                         ),
-                        Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: Text(
-                            _content?.titleHebrew ?? widget.titleHebrew,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.secondary,
-                                  fontSize: 15,
+                      );
+                    },
+                  ),
+                ],
+        ),
+        body: Stack(
+          children: [
+            Container(
+              color: Theme.of(context).colorScheme.surface,
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: _buildBody(),
+              ),
+            ),
+            if (controlsHiddenForFocus && _content != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 80,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () {
+                    setState(() => _controlsVisible = true);
+                    _scheduleAutoHideControls();
+                  },
+                ),
+              ),
+          ],
+        ),
+        bottomNavigationBar: _content != null && !controlsHiddenForFocus
+            ? _buildPlayBar()
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildPlayBar() {
+    final content = _content!;
+    final hasAudio = content.audio != null && _audioError == null;
+    final playing = _player.playing;
+    final wordCount = content.words.length;
+    final progress = wordCount > 0 && _currentWordIndex >= 0
+        ? (_currentWordIndex + 1) / wordCount
+        : 0.0;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (hasAudio)
+                  Semantics(
+                    label: playing ? 'Pause' : 'Play',
+                    button: true,
+                    child: GestureDetector(
+                      onTapDown: (_) =>
+                          setState(() => _playButtonPressed = true),
+                      onTapUp: (_) =>
+                          setState(() => _playButtonPressed = false),
+                      onTapCancel: () =>
+                          setState(() => _playButtonPressed = false),
+                      child: AnimatedScale(
+                        scale: _playButtonPressed ? 0.96 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        child: AnimatedBuilder(
+                          animation: _pulseController,
+                          builder: (context, child) {
+                            final pulseScale = playing
+                                ? 1.0 + (_pulseController.value * 0.02)
+                                : 1.0;
+                            return Transform.scale(
+                              scale: pulseScale,
+                              child: child,
+                            );
+                          },
+                          child: Material(
+                            elevation: 3,
+                            color: Theme.of(context).colorScheme.primary,
+                            shadowColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(20),
+                            child: InkWell(
+                              onTap: () async {
+                                if (playing) {
+                                  await _pause();
+                                } else {
+                                  await _play();
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 10,
                                 ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      playing
+                                          ? Icons.graphic_eq_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onPrimary,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      playing ? 'Pause' : 'Play',
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                  if (widget.localSongFolderId != null) ...[
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.offline_pin_rounded,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
+                if (hasAudio) const SizedBox(width: 8),
+                Semantics(
+                  label: 'Playback mode: ${_playbackMode.label}',
+                  button: true,
+                  child: IconButton(
+                    style: IconButton.styleFrom(
+                      padding: const EdgeInsets.all(8),
+                      minimumSize: const Size(36, 36),
                     ),
-                  ],
-                ],
-              ),
-        actions: controlsHiddenForFocus
-            ? const []
-            : [
+                    icon: Icon(
+                      _playbackMode == PlaybackMode.loopOne
+                          ? Icons.repeat_one_rounded
+                          : _playbackMode == PlaybackMode.loopPlaylist
+                          ? Icons.repeat_rounded
+                          : Icons.replay_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
+                    onPressed: () async {
+                      final chosen = await showModalBottomSheet<PlaybackMode>(
+                        context: context,
+                        builder: (ctx) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  'Playback mode',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              ...PlaybackMode.values.map(
+                                (m) => ListTile(
+                                  title: Text(m.label),
+                                  trailing: _playbackMode == m
+                                      ? Icon(
+                                          Icons.check,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        )
+                                      : null,
+                                  onTap: () => Navigator.pop(ctx, m),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                      if (chosen != null && mounted) {
+                        setState(() => _playbackMode = chosen);
+                        await LoopPreferenceService.setPlaybackMode(chosen);
+                        await _player.setLoopMode(
+                          chosen == PlaybackMode.loopOne
+                              ? LoopMode.one
+                              : LoopMode.off,
+                        );
+                        await _playerStateSub?.cancel();
+                        _playerStateSub = _player.playerStateStream.listen((
+                          state,
+                        ) async {
+                          if (!mounted) return;
+                          if (state.processingState ==
+                              ProcessingState.completed) {
+                            if (_playbackMode == PlaybackMode.loopPlaylist &&
+                                widget.playlistIds != null &&
+                                widget.playlistIds!.length > 1) {
+                              _advanceToNextInPlaylist();
+                            } else if (_playbackMode == PlaybackMode.playOnce) {
+                              await _player.stop();
+                              if (mounted) setState(() {});
+                            }
+                          }
+                        });
+                      }
+                    },
+                  ),
+                ),
                 if (_content != null &&
                     _content!.words.isNotEmpty &&
                     _content!.audio != null &&
-                    _audioError == null)
+                    _audioError == null) ...[
+                  const SizedBox(width: 4),
                   PopupMenuButton<WordHintMode>(
                     tooltip: 'Word hints',
+                    padding: EdgeInsets.zero,
                     onSelected: (mode) {
                       setState(() {
                         _wordHintMode = mode;
@@ -707,15 +910,18 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       ),
                     ],
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: _WordHintIcon(mode: _wordHintMode, size: 28),
+                      padding: const EdgeInsets.all(6),
+                      child: _WordHintIcon(mode: _wordHintMode, size: 22),
                     ),
                   ),
+                ],
                 if (_content != null &&
                     _content!.audio != null &&
-                    _audioError == null)
+                    _audioError == null) ...[
+                  const SizedBox(width: 4),
                   PopupMenuButton<PlaybackSpeed>(
                     tooltip: 'Playback speed',
+                    padding: EdgeInsets.zero,
                     initialValue: _playbackSpeed,
                     onSelected: _setPlaybackSpeed,
                     itemBuilder: (context) => PlaybackSpeed.values.map((speed) {
@@ -747,300 +953,15 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       );
                     }).toList(),
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(6),
                       child: Icon(
                         Icons.speed_rounded,
-                        size: 22,
+                        size: 20,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  tooltip: 'Settings',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-      ),
-      body: Listener(
-        onPointerDown: _handlePointerDown,
-        onPointerMove: _handlePointerMove,
-        onPointerUp: _handlePointerUp,
-        onPointerCancel: _handlePointerCancel,
-        child: Container(
-          color: Theme.of(context).colorScheme.surface,
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: _buildBody(),
-          ),
-        ),
-      ),
-      bottomNavigationBar: _content != null && !controlsHiddenForFocus
-          ? _buildPlayBar()
-          : null,
-    );
-  }
-
-  Widget _buildPlayBar() {
-    final content = _content!;
-    final hasAudio = content.audio != null && _audioError == null;
-    final playing = _player.playing;
-    final pageCount = _pageCount(content);
-    final canPrev = _currentPage > 0;
-    final canNext = _currentPage < pageCount - 1;
-    final progress = pageCount > 0 ? (_currentPage + 1) / pageCount : 1.0;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 4,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Semantics(
-                  label: canPrev ? 'Previous page' : 'Previous page (disabled)',
-                  button: true,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Material(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                        child: IconButton(
-                          icon: const Icon(Icons.chevron_right_rounded),
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                          onPressed: canPrev
-                              ? () => _goToPage(_currentPage - 1)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Prev',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                if (hasAudio)
-                  Semantics(
-                    label: playing ? 'Pause' : 'Play',
-                    button: true,
-                    child: GestureDetector(
-                      onTapDown: (_) =>
-                          setState(() => _playButtonPressed = true),
-                      onTapUp: (_) =>
-                          setState(() => _playButtonPressed = false),
-                      onTapCancel: () =>
-                          setState(() => _playButtonPressed = false),
-                      child: AnimatedScale(
-                        scale: _playButtonPressed ? 0.96 : 1.0,
-                        duration: const Duration(milliseconds: 100),
-                        child: AnimatedBuilder(
-                          animation: _pulseController,
-                          builder: (context, child) {
-                            final pulseScale = playing
-                                ? 1.0 + (_pulseController.value * 0.02)
-                                : 1.0;
-                            return Transform.scale(
-                              scale: pulseScale,
-                              child: child,
-                            );
-                          },
-                          child: Material(
-                            elevation: 3,
-                            color: Theme.of(context).colorScheme.primary,
-                            shadowColor: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(28),
-                            child: InkWell(
-                              onTap: () async {
-                                if (playing) {
-                                  await _pause();
-                                } else {
-                                  await _play();
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(28),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 16,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      playing
-                                          ? Icons.graphic_eq_rounded
-                                          : Icons.play_arrow_rounded,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onPrimary,
-                                      size: 28,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(
-                                      playing ? 'Pause' : 'Play',
-                                      style: TextStyle(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onPrimary,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (hasAudio) const SizedBox(width: 12),
-                if (hasAudio)
-                  Semantics(
-                    label: 'Playback mode: ${_playbackMode.label}',
-                    button: true,
-                    child: IconButton(
-                      icon: Icon(
-                        _playbackMode == PlaybackMode.loopOne
-                            ? Icons.repeat_one_rounded
-                            : _playbackMode == PlaybackMode.loopPlaylist
-                            ? Icons.repeat_rounded
-                            : Icons.replay_rounded,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      onPressed: () async {
-                        final chosen = await showModalBottomSheet<PlaybackMode>(
-                          context: context,
-                          builder: (ctx) => SafeArea(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Text(
-                                    'Playback mode',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                                ...PlaybackMode.values.map(
-                                  (m) => ListTile(
-                                    title: Text(m.label),
-                                    trailing: _playbackMode == m
-                                        ? Icon(
-                                            Icons.check,
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                          )
-                                        : null,
-                                    onTap: () => Navigator.pop(ctx, m),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                        if (chosen != null && mounted) {
-                          setState(() => _playbackMode = chosen);
-                          await LoopPreferenceService.setPlaybackMode(chosen);
-                          await _player.setLoopMode(
-                            chosen == PlaybackMode.loopOne
-                                ? LoopMode.one
-                                : LoopMode.off,
-                          );
-                          await _playerStateSub?.cancel();
-                          _playerStateSub = _player.playerStateStream.listen((
-                            state,
-                          ) async {
-                            if (!mounted) return;
-                            if (state.processingState ==
-                                ProcessingState.completed) {
-                              if (_playbackMode == PlaybackMode.loopPlaylist &&
-                                  widget.playlistIds != null &&
-                                  widget.playlistIds!.length > 1) {
-                                _advanceToNextInPlaylist();
-                              } else if (_playbackMode ==
-                                  PlaybackMode.playOnce) {
-                                await _player.stop();
-                                if (mounted) setState(() {});
-                              }
-                            }
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                if (hasAudio) const SizedBox(width: 12),
-                Semantics(
-                  label: canNext ? 'Next page' : 'Next page (disabled)',
-                  button: true,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Material(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
-                        child: IconButton(
-                          icon: const Icon(Icons.chevron_left_rounded),
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                          onPressed: canNext
-                              ? () => _goToPage(_currentPage + 1)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Next',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ],
             ),
           ],
@@ -1107,6 +1028,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         final minTextHeight = (viewportHeight - padding * 2 - topSectionHeight)
             .clamp(200.0, double.infinity);
         return SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(padding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1254,17 +1176,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         textAlign: textAlign,
       );
     }
-    final start = _startWordIndexForPage(content, _currentPage);
-    final end = _endWordIndexForPage(content, _currentPage);
-
     return Wrap(
       textDirection: TextDirection.rtl,
       alignment: wrapAlign,
       runAlignment: wrapAlign,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (var i = start; i <= end && i < words.length; i++)
-          _buildWordChip(words[i], i),
+        for (var i = 0; i < words.length; i++) _buildWordChip(words[i], i),
       ],
     );
   }
@@ -1292,10 +1210,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               setState(() {
                 _currentWordIndex = i;
                 _currentContentSeconds = w.start;
-                if (_content!.sentences.isNotEmpty) {
-                  final sentence = _sentenceIndexForWord(_content!, i);
-                  _currentPage = sentence ~/ _sentencesPerPage;
-                }
               });
             }
           } else {
