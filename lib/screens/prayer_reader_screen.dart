@@ -138,18 +138,14 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   bool _controlsVisible = true;
   Timer? _controlsAutoHideTimer;
   Timer? _tapRevealTimer;
-  Timer? _autoScrollTimer;
   Timer? _visibilityCheckTimer;
-  DateTime? _autoScrollPausedUntil;
   int? _activePointerId;
   Offset? _pointerDownPosition;
   bool _pointerMoved = false;
 
   static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
   static const Duration _tapRevealDebounce = Duration(milliseconds: 120);
-  static const Duration _autoScrollAfterIdle = Duration(seconds: 3);
-  static const Duration _autoScrollPauseAfterUserScroll = Duration(seconds: 3);
-  static const Duration _visibilityCheckInterval = Duration(seconds: 1);
+  static const Duration _visibilityCheckInterval = Duration(milliseconds: 200);
   static const double _tapMovementThreshold = 12.0;
   static const double _minPrayerScale = 0.6;
   static const double _maxPrayerScale = 2.0;
@@ -205,14 +201,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     _loadPlaybackSpeed();
     _loadLoopPreference();
     _loadContent();
-    _scrollController.addListener(_onScrollPositionChanged);
-  }
-
-  void _onScrollPositionChanged() {
-    _autoScrollPausedUntil = DateTime.now().add(
-      _autoScrollPauseAfterUserScroll,
-    );
-    _cancelAutoScrollTimer();
   }
 
   void _scheduleVisibilityChecks() {
@@ -249,10 +237,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScrollPositionChanged);
     _scrollController.dispose();
     _cancelControlsAutoHide();
-    _cancelAutoScrollTimer();
     _visibilityCheckTimer?.cancel();
     _tapRevealTimer?.cancel();
     _playingSub?.cancel();
@@ -299,7 +285,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       setState(() {
         _content = content;
         _loading = false;
-        if (audioFile == null) _audioError = 'Audio is not available for this prayer.';
+        if (audioFile == null)
+          _audioError = 'Audio is not available for this prayer.';
       });
       if (audioFile != null) {
         if (widget.localSongFolderId != null) {
@@ -599,13 +586,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     if (_waitingForStillListeningResponse) return;
     _singleLoopCount = 0;
     _playlistCycleCount = 0;
-    _cancelAutoScrollTimer();
   }
 
   /// Auto-scroll when the current word chip (Hebrew + highlight + translation/
-  /// transliteration) is not fully visible.
-  /// - Only starts a timer if none is already running (avoids reset-every-1s bug).
-  /// - Paused for [_autoScrollPauseAfterUserScroll] after any user scroll/zoom.
+  /// transliteration) is not fully visible within the viewport.
   void _ensureCurrentWordVisible() {
     final ctx = _currentWordKey.currentContext;
     if (ctx == null) return;
@@ -622,41 +606,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         viewportRectGlobal.contains(objectRect.topLeft) &&
         viewportRectGlobal.contains(objectRect.bottomRight);
 
-    if (fullyVisible) {
-      _cancelAutoScrollTimer();
-      return;
-    }
+    if (fullyVisible) return;
 
-    if (_autoScrollPausedUntil != null &&
-        DateTime.now().isBefore(_autoScrollPausedUntil!)) {
-      return;
-    }
-
-    // Only start a new timer if one isn't already counting down.
-    _autoScrollTimer ??= Timer(_autoScrollAfterIdle, _performAutoScroll);
-  }
-
-  void _performAutoScroll() {
-    _autoScrollTimer = null;
-    if (!mounted) return;
-    if (_autoScrollPausedUntil != null &&
-        DateTime.now().isBefore(_autoScrollPausedUntil!)) {
-      return;
-    }
-    final c = _currentWordKey.currentContext;
-    if (c == null) return;
-    // Remove listener during programmatic scroll so it doesn't trigger the
-    // user-scroll pause, then re-add it on the next frame.
-    _scrollController.removeListener(_onScrollPositionChanged);
-    Scrollable.ensureVisible(c, duration: Duration.zero, alignment: 0.15);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _scrollController.addListener(_onScrollPositionChanged);
-    });
-  }
-
-  void _cancelAutoScrollTimer() {
-    _autoScrollTimer?.cancel();
-    _autoScrollTimer = null;
+    Scrollable.ensureVisible(ctx, duration: Duration.zero, alignment: 0.05);
   }
 
   void _cancelControlsAutoHide() {
@@ -1265,22 +1217,12 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       onPressed: () {
                         final ctx = _currentWordKey.currentContext;
                         if (ctx != null) {
-                          _scrollController.removeListener(
-                            _onScrollPositionChanged,
-                          );
                           Scrollable.ensureVisible(
                             ctx,
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut,
-                            alignment: 0.15,
+                            alignment: 0.05,
                           );
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) {
-                              _scrollController.addListener(
-                                _onScrollPositionChanged,
-                              );
-                            }
-                          });
                         }
                       },
                     ),
@@ -1360,7 +1302,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               if (_audioError != null)
                 Material(
                   color: Theme.of(context).colorScheme.errorContainer,
-                    child: Padding(
+                  child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
@@ -1369,9 +1311,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       children: [
                         Icon(
                           Icons.info_outline,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onErrorContainer,
+                          color: Theme.of(context).colorScheme.onErrorContainer,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1413,19 +1353,8 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: (_) {
                   _scaleStart = _prayerTextScale;
-                  if (_player.playing) {
-                    _autoScrollPausedUntil = DateTime.now().add(
-                      _autoScrollPauseAfterUserScroll,
-                    );
-                    _cancelAutoScrollTimer();
-                  }
                 },
                 onScaleUpdate: (d) {
-                  if (_player.playing) {
-                    _autoScrollPausedUntil = DateTime.now().add(
-                      _autoScrollPauseAfterUserScroll,
-                    );
-                  }
                   setState(() {
                     _prayerTextScale = (_scaleStart * d.scale).clamp(
                       _minPrayerScale,
@@ -1637,11 +1566,11 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 builder: (context) {
                   final hint =
                       (w.translation != null && w.translation!.isNotEmpty)
-                          ? w.translation!
-                          : (w.transliteration != null &&
-                                  w.transliteration!.isNotEmpty)
-                          ? w.transliteration!
-                          : TransliterationService.transliterate(w.word);
+                      ? w.translation!
+                      : (w.transliteration != null &&
+                            w.transliteration!.isNotEmpty)
+                      ? w.transliteration!
+                      : TransliterationService.transliterate(w.word);
                   return Padding(
                     padding: const EdgeInsets.only(top: 2),
                     child: AnimatedContainer(
