@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../data/playback_mode.dart';
@@ -137,12 +138,18 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   bool _controlsVisible = true;
   Timer? _controlsAutoHideTimer;
   Timer? _tapRevealTimer;
+  Timer? _autoScrollTimer;
+  Timer? _visibilityCheckTimer;
+  DateTime? _autoScrollPausedUntil;
   int? _activePointerId;
   Offset? _pointerDownPosition;
   bool _pointerMoved = false;
 
   static const Duration _controlsAutoHideDelay = Duration(seconds: 3);
   static const Duration _tapRevealDebounce = Duration(milliseconds: 120);
+  static const Duration _autoScrollAfterIdle = Duration(seconds: 3);
+  static const Duration _autoScrollPauseAfterUserScroll = Duration(seconds: 3);
+  static const Duration _visibilityCheckInterval = Duration(seconds: 1);
   static const double _tapMovementThreshold = 12.0;
   static const double _minPrayerScale = 0.6;
   static const double _maxPrayerScale = 2.0;
@@ -151,7 +158,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   static const int _stillListeningThreshold = 10;
 
   int _singleLoopCount = 0;
-  static int _playlistCycleCount = 0;
+  int _playlistCycleCount = 0;
   bool _waitingForStillListeningResponse = false;
 
   static const String _prayersAssetPath = 'assets/audio';
@@ -182,10 +189,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         if (playing) {
           _pulseController.repeat(reverse: true);
           _scheduleAutoHideControls();
+          _scheduleVisibilityChecks();
         } else {
           _pulseController.stop();
           _pulseController.reset();
           _cancelControlsAutoHide();
+          _visibilityCheckTimer?.cancel();
+          _visibilityCheckTimer = null;
           if (!_controlsVisible) {
             setState(() => _controlsVisible = true);
           }
@@ -195,9 +205,32 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     _loadPlaybackSpeed();
     _loadLoopPreference();
     _loadContent();
-    if (widget.playlistIds == null) {
-      _playlistCycleCount = 0;
+    _scrollController.addListener(_onScrollPositionChanged);
+  }
+
+  void _onScrollPositionChanged() {
+    _autoScrollPausedUntil = DateTime.now().add(
+      _autoScrollPauseAfterUserScroll,
+    );
+    _cancelAutoScrollTimer();
+  }
+
+  void _scheduleVisibilityChecks() {
+    _visibilityCheckTimer?.cancel();
+    void scheduleNext() {
+      _visibilityCheckTimer = Timer(_visibilityCheckInterval, () {
+        if (!mounted || !_player.playing) return;
+        _visibilityCheckTimer = null;
+        if (_currentWordIndex >= 0) {
+          _ensureCurrentWordVisible();
+        }
+        if (mounted && _player.playing) {
+          scheduleNext();
+        }
+      });
     }
+
+    scheduleNext();
   }
 
   Future<void> _loadPlaybackSpeed() async {
@@ -216,8 +249,11 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScrollPositionChanged);
     _scrollController.dispose();
     _cancelControlsAutoHide();
+    _cancelAutoScrollTimer();
+    _visibilityCheckTimer?.cancel();
     _tapRevealTimer?.cancel();
     _playingSub?.cancel();
     _pulseController.dispose();
@@ -263,7 +299,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       setState(() {
         _content = content;
         _loading = false;
-        if (audioFile == null) _audioError = 'Could not find .mp3';
+        if (audioFile == null) _audioError = 'Audio is not available for this prayer.';
       });
       if (audioFile != null) {
         if (widget.localSongFolderId != null) {
@@ -334,6 +370,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     if (offset > 0) {
       await _player.seek(Duration(milliseconds: (offset * 1000).round()));
     }
+    await _positionSub?.cancel();
     _positionSub = _player.positionStream.listen((pos) {
       if (!mounted) return;
       double sec = pos.inMilliseconds / 1000.0;
@@ -363,10 +400,16 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
           content != null &&
           content.words.isNotEmpty &&
           _currentWordIndex == content.words.length - 1;
+      final wordChanged = newIndex != _currentWordIndex;
       setState(() {
         _currentWordIndex = newIndex;
         _currentContentSeconds = secForSync;
       });
+      if (wordChanged && newIndex >= 0 && _player.playing) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _ensureCurrentWordVisible();
+        });
+      }
       if (newIndex <= 0 && wasAtEnd) {
         if (_playbackMode == PlaybackMode.loopOne) {
           _singleLoopCount++;
@@ -377,6 +420,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             WidgetsBinding.instance.addPostFrameCallback((_) async {
               if (!mounted) return;
               final keepGoing = await _showStillListeningDialog(
+                count: _singleLoopCount,
                 isLoopOne: true,
               );
               if (!mounted) return;
@@ -400,6 +444,12 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         });
       }
     });
+    await _rebuildPlayerStateSub();
+    await _player.play();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _rebuildPlayerStateSub() async {
     await _playerStateSub?.cancel();
     _playerStateSub = _player.playerStateStream.listen((state) async {
       if (!mounted) return;
@@ -418,7 +468,10 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
             _waitingForStillListeningResponse = true;
             await _pause();
             if (!mounted) return;
-            final keepGoing = await _showStillListeningDialog(isLoopOne: false);
+            final keepGoing = await _showStillListeningDialog(
+              count: _playlistCycleCount,
+              isLoopOne: false,
+            );
             if (!mounted) return;
             _waitingForStillListeningResponse = false;
             if (keepGoing) {
@@ -447,8 +500,6 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         }
       }
     });
-    await _player.play();
-    if (mounted) setState(() {});
   }
 
   void _advanceToNextInPlaylist() {
@@ -507,14 +558,16 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
   Future<void> _pause() async {
     await _player.pause();
     _cancelControlsAutoHide();
-    if (!_controlsVisible) {
-      setState(() => _controlsVisible = true);
-    }
-    setState(() {});
+    setState(() {
+      if (!_controlsVisible) _controlsVisible = true;
+    });
   }
 
   /// Returns true if user wants to keep playing, false to stop.
-  Future<bool> _showStillListeningDialog({required bool isLoopOne}) async {
+  Future<bool> _showStillListeningDialog({
+    required bool isLoopOne,
+    required int count,
+  }) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -522,9 +575,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
         title: const Text('Still learning?'),
         content: Text(
           isLoopOne
-              ? 'You\'ve repeated this prayer $_stillListeningThreshold times. '
+              ? 'You\'ve repeated this prayer $count times. '
                     'Are you still here? Tap "Keep going" to continue, or "Pause" if you\'re done for now.'
-              : 'You\'ve gone through the playlist $_stillListeningThreshold times. '
+              : 'You\'ve gone through the playlist $count times. '
                     'Are you still here? Tap "Keep going" to continue, or "Pause" if you\'re done for now.',
         ),
         actions: [
@@ -546,6 +599,64 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     if (_waitingForStillListeningResponse) return;
     _singleLoopCount = 0;
     _playlistCycleCount = 0;
+    _cancelAutoScrollTimer();
+  }
+
+  /// Auto-scroll when the current word chip (Hebrew + highlight + translation/
+  /// transliteration) is not fully visible.
+  /// - Only starts a timer if none is already running (avoids reset-every-1s bug).
+  /// - Paused for [_autoScrollPauseAfterUserScroll] after any user scroll/zoom.
+  void _ensureCurrentWordVisible() {
+    final ctx = _currentWordKey.currentContext;
+    if (ctx == null) return;
+    final object = ctx.findRenderObject();
+    if (object == null || !object.attached) return;
+    final box = object as RenderBox;
+    final viewport = RenderAbstractViewport.maybeOf(object);
+    if (viewport == null) return;
+    final viewportBox = viewport as RenderBox;
+    final objectRect = box.localToGlobal(Offset.zero) & box.size;
+    final viewportRectGlobal =
+        viewportBox.localToGlobal(Offset.zero) & viewportBox.size;
+    final fullyVisible =
+        viewportRectGlobal.contains(objectRect.topLeft) &&
+        viewportRectGlobal.contains(objectRect.bottomRight);
+
+    if (fullyVisible) {
+      _cancelAutoScrollTimer();
+      return;
+    }
+
+    if (_autoScrollPausedUntil != null &&
+        DateTime.now().isBefore(_autoScrollPausedUntil!)) {
+      return;
+    }
+
+    // Only start a new timer if one isn't already counting down.
+    _autoScrollTimer ??= Timer(_autoScrollAfterIdle, _performAutoScroll);
+  }
+
+  void _performAutoScroll() {
+    _autoScrollTimer = null;
+    if (!mounted) return;
+    if (_autoScrollPausedUntil != null &&
+        DateTime.now().isBefore(_autoScrollPausedUntil!)) {
+      return;
+    }
+    final c = _currentWordKey.currentContext;
+    if (c == null) return;
+    // Remove listener during programmatic scroll so it doesn't trigger the
+    // user-scroll pause, then re-add it on the next frame.
+    _scrollController.removeListener(_onScrollPositionChanged);
+    Scrollable.ensureVisible(c, duration: Duration.zero, alignment: 0.15);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollController.addListener(_onScrollPositionChanged);
+    });
+  }
+
+  void _cancelAutoScrollTimer() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
   }
 
   void _cancelControlsAutoHide() {
@@ -568,9 +679,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
     if (!_controlsVisible) {
       setState(() => _controlsVisible = true);
     }
-    if (_player.playing) {
-      _scheduleAutoHideControls();
-    }
+    _scheduleAutoHideControls();
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -944,33 +1053,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                                 ? LoopMode.one
                                 : LoopMode.off,
                           );
-                          _playerStateSub?.cancel();
-                          _playerStateSub = _player.playerStateStream.listen((
-                            state,
-                          ) async {
-                            if (!mounted) return;
-                            if (state.processingState ==
-                                ProcessingState.completed) {
-                              if (_playbackMode == PlaybackMode.loopPlaylist &&
-                                  widget.playlistIds != null &&
-                                  widget.playlistIds!.length > 1) {
-                                _advanceToNextInPlaylist();
-                              } else if (_playbackMode ==
-                                  PlaybackMode.playOnce) {
-                                await _player.stop();
-                                if (mounted) setState(() {});
-                              }
-                            }
-                          });
+                          await _rebuildPlayerStateSub();
                         }
                       },
                     ),
                   ),
                 ),
-                if (_content != null &&
-                    _content!.words.isNotEmpty &&
-                    _content!.audio != null &&
-                    _audioError == null) ...[
+                if (content.words.isNotEmpty && hasAudio) ...[
                   const SizedBox(width: 4),
                   PopupMenuButton<WordHintMode>(
                     tooltip: 'Word hints',
@@ -978,9 +1067,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     onSelected: (mode) {
                       setState(() {
                         _wordHintMode = mode;
-                        if (mode == WordHintMode.hebrewOnly) {
-                          _tappedWordIndex = null;
-                        }
+                        _tappedWordIndex = null;
                       });
                     },
                     itemBuilder: (context) => [
@@ -1113,9 +1200,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     ),
                   ),
                 ],
-                if (_content != null &&
-                    _content!.audio != null &&
-                    _audioError == null) ...[
+                if (hasAudio) ...[
                   const SizedBox(width: 8),
                   PopupMenuButton<PlaybackSpeed>(
                     tooltip: 'Playback speed',
@@ -1163,9 +1248,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                     ),
                   ),
                 ],
-                if (_content != null &&
-                    _content!.words.isNotEmpty &&
-                    _currentWordIndex >= 0) ...[
+                if (content.words.isNotEmpty && _currentWordIndex >= 0) ...[
                   const SizedBox(width: 4),
                   Tooltip(
                     message: 'Scroll to current word',
@@ -1182,12 +1265,22 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                       onPressed: () {
                         final ctx = _currentWordKey.currentContext;
                         if (ctx != null) {
+                          _scrollController.removeListener(
+                            _onScrollPositionChanged,
+                          );
                           Scrollable.ensureVisible(
                             ctx,
                             duration: const Duration(milliseconds: 300),
                             curve: Curves.easeInOut,
-                            alignment: 0.3,
+                            alignment: 0.15,
                           );
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              _scrollController.addListener(
+                                _onScrollPositionChanged,
+                              );
+                            }
+                          });
                         }
                       },
                     ),
@@ -1267,34 +1360,29 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               if (_audioError != null)
                 Material(
                   color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
+                    child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
+                        Icon(
+                          Icons.info_outline,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onErrorContainer,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _audioError!,
+                            style: TextStyle(
                               color: Theme.of(
                                 context,
                               ).colorScheme.onErrorContainer,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _audioError!,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onErrorContainer,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
@@ -1310,7 +1398,7 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                   textAlign: TextAlign.center,
                 ),
               ],
-              if (_hasRecordingMetadata(content)) ...[
+              if (hasMeta) ...[
                 const SizedBox(height: 8),
                 Text(
                   _recordingMetadataLine(content),
@@ -1323,8 +1411,21 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
               const SizedBox(height: 24),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onScaleStart: (_) => _scaleStart = _prayerTextScale,
+                onScaleStart: (_) {
+                  _scaleStart = _prayerTextScale;
+                  if (_player.playing) {
+                    _autoScrollPausedUntil = DateTime.now().add(
+                      _autoScrollPauseAfterUserScroll,
+                    );
+                    _cancelAutoScrollTimer();
+                  }
+                },
                 onScaleUpdate: (d) {
+                  if (_player.playing) {
+                    _autoScrollPausedUntil = DateTime.now().add(
+                      _autoScrollPauseAfterUserScroll,
+                    );
+                  }
                   setState(() {
                     _prayerTextScale = (_scaleStart * d.scale).clamp(
                       _minPrayerScale,
@@ -1447,12 +1548,13 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       child: GestureDetector(
         onTap: () async {
           // Single tap: play full audio from this word (also used to show controls)
-          if (_content != null && w.start >= 0) {
+          if (_content != null && _audioError == null && w.start >= 0) {
             final offset = _content!.audioOffsetSeconds;
             final seekPos = Duration(
               milliseconds: ((w.start + offset) * 1000).round(),
             );
             await _player.seek(seekPos);
+            if (!mounted) return;
             if (!_player.playing) {
               await _player.play();
             }
@@ -1530,36 +1632,45 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
                 ],
               ),
             ),
-            if (_wordHintMode == WordHintMode.translation &&
-                w.translation != null &&
-                w.translation!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isCurrent
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.transparent,
-                      width: 1,
+            if (_wordHintMode == WordHintMode.translation)
+              Builder(
+                builder: (context) {
+                  final hint =
+                      (w.translation != null && w.translation!.isNotEmpty)
+                          ? w.translation!
+                          : (w.transliteration != null &&
+                                  w.transliteration!.isNotEmpty)
+                          ? w.transliteration!
+                          : TransliterationService.transliterate(w.word);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isCurrent
+                              ? Theme.of(context).colorScheme.primary
+                              : Colors.transparent,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        hint,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12 * scale,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        textDirection: TextDirection.ltr,
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    w.translation!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 12 * scale,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    textDirection: TextDirection.ltr,
-                  ),
-                ),
+                  );
+                },
               )
             else if (_wordHintMode == WordHintMode.transliteration)
               Padding(
