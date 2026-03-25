@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../config/cdn_config.dart';
 import '../models/prayer.dart';
-import '../services/broadcast_message_service.dart';
-import '../services/cache_keys_service.dart';
-import '../services/offline_tip_service.dart';
-import '../services/cloud_index_service.dart';
 import '../services/default_playlist_service.dart';
 import '../services/last_played_service.dart';
-import '../services/prayer_service.dart' show PrayerIndex, PrayerService;
+import '../services/prayer_catalog_loader.dart';
+import '../services/prayer_service.dart' show PrayerService;
 import '../services/progress_service.dart';
 import '../services/song_download_service.dart';
-import '../utils/url_validator.dart';
+import 'prayer_catalog_welcome.dart';
 import 'prayer_reader_screen.dart';
 import 'settings_screen.dart';
 
 class PrayerListScreen extends StatefulWidget {
-  const PrayerListScreen({super.key});
+  const PrayerListScreen({
+    super.key,
+    this.categoryBucket,
+    this.autoOpenPrayerId,
+    this.popRouteAfterReader = false,
+  });
+
+  /// When set, only prayers in this bucket (see [prayerCategoryBucketKey]) are listed.
+  final String? categoryBucket;
+
+  /// After load, opens this prayer in the reader once.
+  final String? autoOpenPrayerId;
+
+  /// When true, pops this route after the reader closes (e.g. home "Continue" shortcut).
+  final bool popRouteAfterReader;
 
   @override
   State<PrayerListScreen> createState() => _PrayerListScreenState();
@@ -31,6 +40,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   String? _error;
   String _loadingMessage = 'Connecting to the cloud...';
   bool _hasMarkedChipShown = false;
+  bool _autoOpenUiReady = true;
 
   Future<({String? prayerId, String date, bool hasShownChip})>
   _loadLastPracticedForDisplay() async {
@@ -47,57 +57,6 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   void initState() {
     super.initState();
     _loadPrayers();
-  }
-
-  Future<void> _maybeShowOfflineTip() async {
-    if (!CdnConfig.isCloudEnabled) return;
-    final shown = await OfflineTipService.hasShownTip();
-    if (shown) return;
-    if (!mounted) return;
-    await OfflineTipService.markTipShown();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Tap a prayer to download it for offline listening. The pin icon shows which prayers are cached.',
-        ),
-        duration: Duration(seconds: 5),
-      ),
-    );
-  }
-
-  Future<void> _maybeShowBroadcastMessages() async {
-    final messages = await BroadcastMessageService.fetchMessagesToShow();
-    if (!mounted || messages.isEmpty) return;
-    for (final msg in messages) {
-      if (!mounted) return;
-      final hasSafeLink =
-          msg.link != null && UrlValidator.isSafeToOpen(msg.link);
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(msg.title),
-          content: SingleChildScrollView(child: Text(msg.body)),
-          actions: [
-            if (hasSafeLink)
-              TextButton(
-                onPressed: () async {
-                  final uri = Uri.parse(msg.link!);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('Learn more'),
-              ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Future<void> _playPlaylist() async {
@@ -130,55 +89,43 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
 
   Future<void> _loadPrayers() async {
     if (!mounted) return;
-    final forceCloudRefresh =
-        await CacheKeysService.consumeCacheClearedMessage();
     setState(() {
       _loading = true;
       _error = null;
       _prayers = [];
       _loadingMessage = 'Connecting to the cloud...';
+      _autoOpenUiReady = widget.autoOpenPrayerId == null;
     });
 
-    if (forceCloudRefresh && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Security key changed. Connecting to the cloud...'),
-          duration: Duration(seconds: 4),
-        ),
-      );
-    }
-
     try {
-      PrayerIndex? index;
-      bool usedCloud = false;
-
-      if (CdnConfig.isCloudEnabled) {
-        index = await CloudIndexService.fetchIndex();
-        if (index != null) {
-          usedCloud = true;
-        } else if (!forceCloudRefresh) {
-          index = await CloudIndexService.loadFromCache();
-          if (index != null) usedCloud = true;
-        }
+      final ({PrayerCatalogSnapshot snapshot, bool cacheWasCleared}) loaded =
+          await PrayerCatalogLoader.loadCatalog();
+      if (loaded.cacheWasCleared && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Security key changed. Connecting to the cloud...'),
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
-
-      if (index == null) {
-        final status = CloudIndexService.lastFetchStatus;
-        if (status == 401) {
-          throw Exception('Authentication failed. Please try again.');
-        }
-        throw Exception('Check internet connection and try again.');
-      }
-      final resolvedIndex = index;
       if (!mounted) return;
       setState(() {
-        _prayers = resolvedIndex.prayers;
-        _indexRecordings = resolvedIndex.recordings;
-        _useCloudIndex = usedCloud;
+        _prayers = loaded.snapshot.prayers;
+        _indexRecordings = loaded.snapshot.recordings;
+        _useCloudIndex = loaded.snapshot.useCloudIndex;
         _loading = false;
+        if (widget.autoOpenPrayerId != null) {
+          _autoOpenUiReady = false;
+        }
       });
-      if (mounted) await _maybeShowOfflineTip();
-      if (mounted) await _maybeShowBroadcastMessages();
+      if (mounted) await runPrayerCatalogWelcomeFlow(context);
+      if (mounted && widget.autoOpenPrayerId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _tryAutoOpenReader();
+          }
+        });
+      }
     } catch (e, st) {
       if (!mounted) return;
       setState(() {
@@ -186,36 +133,66 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
             ? e.toString().replaceFirst('Exception: ', '')
             : e.toString();
         _loading = false;
+        _autoOpenUiReady = true;
       });
       debugPrint('PrayerListScreen load error: $e\n$st');
     }
   }
 
+  List<PrayerListItem> get _visiblePrayers {
+    final String? b = widget.categoryBucket;
+    if (b == null) return _prayers;
+    return _prayers
+        .where((PrayerListItem p) => prayerCategoryBucketKey(p.category) == b)
+        .toList();
+  }
+
+  void _tryAutoOpenReader() {
+    final String? id = widget.autoOpenPrayerId;
+    if (!mounted || id == null) return;
+    final PrayerListItem? found =
+        _prayers.where((PrayerListItem p) => p.id == id).firstOrNull;
+    if (found == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That prayer is not available right now.')),
+      );
+      setState(() => _autoOpenUiReady = true);
+      return;
+    }
+    _openReader(found, context);
+    setState(() => _autoOpenUiReady = true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool canPop = ModalRoute.of(context)?.canPop ?? false;
+    final String? bucket = widget.categoryBucket;
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
+        automaticallyImplyLeading: canPop,
         centerTitle: true,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.menu_book_rounded,
-              size: 28,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Kolenu',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
+        title: bucket != null
+            ? Text(prayerCategoryDisplayName(bucket))
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.menu_book_rounded,
+                    size: 28,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Kolenu',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
         actions: [
           IconButton(
             icon: Icon(
@@ -224,9 +201,9 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
             ),
             tooltip: 'Settings',
             onPressed: () async {
-              final result = await Navigator.of(context).push<Object?>(
+              final Object? result = await Navigator.of(context).push<Object?>(
                 MaterialPageRoute<void>(
-                  builder: (context) => const SettingsScreen(),
+                  builder: (BuildContext context) => const SettingsScreen(),
                 ),
               );
               if (result == 'play_playlist' && mounted) {
@@ -306,21 +283,46 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     if (_prayers.isEmpty) {
       return const Center(child: Text('No prayers yet.'));
     }
-    final theme = Theme.of(context);
+    if (widget.autoOpenPrayerId != null && !_autoOpenUiReady) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final List<PrayerListItem> visible = _visiblePrayers;
+    if (widget.categoryBucket != null && visible.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No prayers in this category yet.',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    final ThemeData theme = Theme.of(context);
+    final bool showLastPracticedExtras =
+        widget.categoryBucket == null && widget.autoOpenPrayerId == null;
+    if (!showLastPracticedExtras) {
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: _buildGroupedPrayerTiles(theme),
+      );
+    }
     return FutureBuilder<({String? prayerId, String date, bool hasShownChip})>(
       future: _loadLastPracticedForDisplay(),
-      builder: (context, snap) {
-        final data =
+      builder: (BuildContext context, AsyncSnapshot<({String? prayerId, String date, bool hasShownChip})> snap) {
+        final ({String? prayerId, String date, bool hasShownChip}) data =
             snap.data ?? (prayerId: null, date: '', hasShownChip: true);
-        final lastPracticed = (prayerId: data.prayerId, date: data.date);
-        final title = lastPracticed.prayerId != null
+        final ({String? prayerId, String date}) lastPracticed =
+            (prayerId: data.prayerId, date: data.date);
+        final String? title = lastPracticed.prayerId != null
             ? (_prayers
-                      .where((p) => p.id == lastPracticed.prayerId)
-                      .map((p) => p.title ?? p.id.replaceAll('_', ' '))
+                      .where((PrayerListItem p) => p.id == lastPracticed.prayerId)
+                      .map((PrayerListItem p) => p.title ?? p.id.replaceAll('_', ' '))
                       .firstOrNull ??
                   lastPracticed.prayerId!.replaceAll('_', ' '))
             : null;
-        final showChip =
+        final bool showChip =
             title != null &&
             lastPracticed.date.isNotEmpty &&
             !data.hasShownChip;
@@ -387,15 +389,13 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     );
   }
 
+  /// Order matches user-facing categories in `doc/prayer_categories.md`.
   static const List<String?> _categoryOrder = [
     'daily',
     'synagogue',
+    '__shabbat_holidays',
     'home_life',
-    'non_prayer_songs',
-    'shabbat',
-    'camp_youth',
-    'hanukkah',
-    'holidays',
+    '__jewish_songs',
     'uncategorized',
     null,
   ];
@@ -405,7 +405,7 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   ) {
     final map = <String?, List<PrayerListItem>>{};
     for (final p in prayers) {
-      final cat = p.category;
+      final String? cat = prayerCategoryBucketKey(p.category);
       map.putIfAbsent(cat, () => []).add(p);
     }
     final result = <MapEntry<String?, List<PrayerListItem>>>[];
@@ -428,8 +428,36 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
   }
 
   List<Widget> _buildGroupedPrayerTiles(ThemeData theme) {
-    final grouped = _groupPrayersByCategory(_prayers);
-    return grouped.map((entry) {
+    final List<PrayerListItem> source = _visiblePrayers;
+    if (widget.categoryBucket != null) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  for (int idx = 0; idx < source.length; idx++) ...[
+                    _buildPrayerRow(
+                      theme,
+                      source[idx],
+                      showDivider: idx < source.length - 1,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+    final grouped = _groupPrayersByCategory(source);
+    return grouped.map((MapEntry<String?, List<PrayerListItem>> entry) {
       final category = entry.key;
       final prayers = entry.value;
       return Padding(
@@ -762,104 +790,21 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
     );
     if (!context.mounted) return null;
 
-    return showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final colorScheme = theme.colorScheme;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Center(
-                child: Container(
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.3,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Text(
-                  'Choose recording',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Divider(height: 1, thickness: 1),
-              ...recordings.map((v) {
-                final isLastPlayed = v.id == lastPlayedRecordingId;
-                final meta = metadataMap[v.id];
-                final cached = cachedMap[v.id] ?? false;
-                return ListTile(
-                  leading: cached
-                      ? Icon(
-                          Icons.offline_pin_rounded,
-                          color: colorScheme.primary,
-                          size: 22,
-                        )
-                      : null,
-                  title: Row(
-                    children: [
-                      Expanded(child: Text(v.displayLabel)),
-                      if (isLastPlayed)
-                        Text(
-                          'Last played',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                    ],
-                  ),
-                  subtitle: meta != null && meta.isNotEmpty
-                      ? Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis)
-                      : null,
-                  trailing: cached
-                      ? IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          tooltip: 'Remove from device',
-                          onPressed: () async {
-                            final confirm = await showDialog<bool>(
-                              context: ctx,
-                              builder: (c) => AlertDialog(
-                                title: const Text('Remove from device?'),
-                                content: Text(
-                                  'Remove "${v.displayLabel}" from this device? You can download it again later.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(c, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () => Navigator.pop(c, true),
-                                    child: const Text('Remove'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true && ctx.mounted) {
-                              await SongDownloadService.deleteRecording(v.id);
-                              if (ctx.mounted) Navigator.pop(ctx);
-                              if (mounted) setState(() {});
-                            }
-                          },
-                        )
-                      : null,
-                  onTap: () => Navigator.pop(ctx, v.id),
-                );
-              }),
-            ],
-          ),
-        );
-      },
+    return Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        fullscreenDialog: true,
+        builder: (BuildContext ctx) => _ChooseRecordingScreen(
+          prayerTitle: item.title ?? item.id.replaceAll('_', ' '),
+          prayerTitleHebrew: item.titleHebrew,
+          recordings: recordings,
+          lastPlayedRecordingId: lastPlayedRecordingId,
+          metadataMap: metadataMap,
+          cachedMap: cachedMap,
+          onCacheChanged: () {
+            if (mounted) setState(() {});
+          },
+        ),
+      ),
     );
   }
 
@@ -896,17 +841,25 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
             ),
           ),
         )
-        .then((result) {
-          if (mounted) _loadPrayers();
+        .then((Map<String, dynamic>? result) {
+          if (!mounted) return;
+          if (widget.popRouteAfterReader) {
+            Navigator.of(context).pop();
+            return;
+          }
+          _loadPrayers();
           if (result != null &&
               result['play_next'] != null &&
               result['playlist_ids'] != null) {
-            final nextId = result['play_next'] as String;
-            final ids = result['playlist_ids'] as List<String>;
-            final nextIndex = ids.indexOf(nextId);
+            final String nextId = result['play_next'] as String;
+            final List<String> ids =
+                result['playlist_ids'] as List<String>;
+            final int nextIndex = ids.indexOf(nextId);
             if (nextIndex >= 0) {
-              final found = _prayers.where((p) => p.id == nextId);
-              final nextItem = found.isEmpty ? null : found.first;
+              final Iterable<PrayerListItem> found =
+                  _prayers.where((PrayerListItem p) => p.id == nextId);
+              final PrayerListItem? nextItem =
+                  found.isEmpty ? null : found.first;
               if (nextItem != null && mounted) {
                 _openReader(
                   nextItem,
@@ -918,6 +871,149 @@ class _PrayerListScreenState extends State<PrayerListScreen> {
             }
           }
         });
+  }
+}
+
+/// Full-screen modal for picking a recording (replaces the previous bottom sheet).
+class _ChooseRecordingScreen extends StatelessWidget {
+  const _ChooseRecordingScreen({
+    required this.prayerTitle,
+    this.prayerTitleHebrew,
+    required this.recordings,
+    this.lastPlayedRecordingId,
+    required this.metadataMap,
+    required this.cachedMap,
+    required this.onCacheChanged,
+  });
+
+  final String prayerTitle;
+  final String? prayerTitleHebrew;
+  final List<RecordingOption> recordings;
+  final String? lastPlayedRecordingId;
+  final Map<String, String?> metadataMap;
+  final Map<String, bool> cachedMap;
+  final VoidCallback onCacheChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Close',
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Choose recording'),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  prayerTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (prayerTitleHebrew != null &&
+                    prayerTitleHebrew!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    prayerTitleHebrew!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              itemCount: recordings.length,
+              separatorBuilder: (BuildContext context, int index) => Divider(
+                height: 1,
+                thickness: 1,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              itemBuilder: (BuildContext ctx, int index) {
+                final RecordingOption v = recordings[index];
+                final bool isLastPlayed = v.id == lastPlayedRecordingId;
+                final String? meta = metadataMap[v.id];
+                final bool cached = cachedMap[v.id] ?? false;
+                return ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
+                  leading: cached
+                      ? Icon(
+                          Icons.offline_pin_rounded,
+                          color: colorScheme.primary,
+                          size: 22,
+                        )
+                      : null,
+                  title: Row(
+                    children: [
+                      Expanded(child: Text(v.displayLabel)),
+                      if (isLastPlayed)
+                        Text(
+                          'Last played',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                    ],
+                  ),
+                  subtitle: meta != null && meta.isNotEmpty
+                      ? Text(meta, maxLines: 3, overflow: TextOverflow.ellipsis)
+                      : null,
+                  trailing: cached
+                      ? IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'Remove from device',
+                          onPressed: () async {
+                            final bool? confirm = await showDialog<bool>(
+                              context: ctx,
+                              builder: (BuildContext c) => AlertDialog(
+                                title: const Text('Remove from device?'),
+                                content: Text(
+                                  'Remove "${v.displayLabel}" from this device? You can download it again later.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text('Remove'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && ctx.mounted) {
+                              await SongDownloadService.deleteRecording(v.id);
+                              onCacheChanged();
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                            }
+                          },
+                        )
+                      : null,
+                  onTap: () => Navigator.of(ctx).pop(v.id),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

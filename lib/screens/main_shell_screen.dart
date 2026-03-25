@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'about_screen.dart';
 import 'hebrew_basics_screen.dart';
-import 'prayer_list_screen.dart';
+import 'home_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -45,7 +45,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
-          PrayerListScreen(),
+          HomeScreen(),
           HebrewBasicsScreen(),
           AboutScreen(),
         ],

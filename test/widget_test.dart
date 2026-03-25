@@ -5,7 +5,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kolenu/main.dart';
+import 'package:kolenu/screens/home_screen.dart';
+import 'package:kolenu/screens/main_shell_screen.dart';
 import 'package:kolenu/screens/prayer_list_screen.dart';
 import 'package:kolenu/screens/prayer_reader_screen.dart';
 import 'package:kolenu/theme/kolenu_theme.dart';
@@ -51,21 +52,21 @@ void main() {
         .setMockMessageHandler('flutter/assets', null);
   });
 
-  testWidgets('App shows prayer list screen with title Kolenu', (
+  testWidgets('Main shell hosts HomeScreen on first tab', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const KolenuApp(
-        initialThemeVariant: KolenuThemeVariant.meadow,
-        hasAgreedTerms: true,
+      MaterialApp(
+        theme: KolenuTheme.light(KolenuThemeVariant.meadow),
+        home: ThemeVariantScope(
+          variant: KolenuThemeVariant.meadow,
+          onVariantChanged: (_) {},
+          child: const MainShellScreen(),
+        ),
       ),
     );
     await tester.pump();
-    for (var i = 0; i < 30; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      if (find.text('Kolenu').evaluate().isNotEmpty) break;
-    }
-    expect(find.text('Kolenu'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
   });
 
   testWidgets('Prayer list screen shows Kolenu and loading or list or error', (

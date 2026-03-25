@@ -1,23 +1,39 @@
-/// Prayer category for grouping.
+/// Buckets metadata [category] keys into list-section keys (see `doc/prayer_categories.md`).
+/// `shabbat` / `holidays` / `hanukkah` → one bucket; `non_prayer_songs` / `camp_youth` → one bucket.
+String? prayerCategoryBucketKey(String? category) {
+  if (category == null || category.isEmpty) return null;
+  switch (category.toLowerCase()) {
+    case 'shabbat':
+    case 'holidays':
+    case 'hanukkah':
+      return '__shabbat_holidays';
+    case 'non_prayer_songs':
+    case 'camp_youth':
+      return '__jewish_songs';
+    default:
+      return category.toLowerCase();
+  }
+}
+
+/// Section title for the prayer list (bucket key from [prayerCategoryBucketKey] or raw metadata).
 String prayerCategoryDisplayName(String? category) {
   if (category == null || category.isEmpty) return 'Prayers';
   switch (category.toLowerCase()) {
-    case 'synagogue':
-      return 'Common Synagogue Prayers';
-    case 'home_life':
-      return 'Home & Life Event Prayers';
-    case 'non_prayer_songs':
-      return 'Non-Prayer Songs';
+    case '__shabbat_holidays':
     case 'shabbat':
-      return 'Shabbat Non-Liturgical';
-    case 'camp_youth':
-      return 'Camp / Youth / Group Favorites';
-    case 'daily':
-      return 'Daily';
-    case 'hanukkah':
-      return 'Hanukkah';
     case 'holidays':
-      return 'Holidays';
+    case 'hanukkah':
+      return 'Shabbat & Holidays';
+    case '__jewish_songs':
+    case 'non_prayer_songs':
+    case 'camp_youth':
+      return 'Jewish Songs';
+    case 'synagogue':
+      return 'Synagogue Prayers';
+    case 'home_life':
+      return 'Life Events & Family';
+    case 'daily':
+      return 'Daily Prayers';
     case 'uncategorized':
       return 'Uncategorized';
     default:

@@ -63,7 +63,7 @@ Content is structured around prayers with word-level timestamps. Two content sou
 ### Navigation
 
 `MainShellScreen` is a bottom-nav shell with three tabs:
-- **Home** → `PrayerListScreen` (browsable/searchable prayer list grouped by category)
+- **Home** → `HomeScreen` (hub: Continue Learning, Start Learning pillars, Community Voices stub, Settings); **See all prayers** and category rows push `PrayerListScreen` (full list or filtered by category bucket)
 - **Learn** → `HebrewBasicsScreen`
 - **About** → `AboutScreen`
 
