@@ -285,8 +285,9 @@ class _PrayerReaderScreenState extends State<PrayerReaderScreen>
       setState(() {
         _content = content;
         _loading = false;
-        if (audioFile == null)
+        if (audioFile == null) {
           _audioError = 'Audio is not available for this prayer.';
+        }
       });
       if (audioFile != null) {
         if (widget.localSongFolderId != null) {

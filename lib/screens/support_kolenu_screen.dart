@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/legal.dart';
 import '../models/support_tier.dart';
 import '../services/support_purchase_service.dart';
 
 /// Screen for "Support Kolenu" IAP.
-/// Shows tier cards; when IAP is available, initiates purchase. Otherwise shows setup message.
+/// One card: pick a tier (chips), then a single purchase button.
+/// Amounts are fixed App Store products — arbitrary custom amounts are not supported for IAP.
 class SupportKolenuScreen extends StatefulWidget {
   const SupportKolenuScreen({super.key});
 
@@ -19,6 +21,9 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
   bool _initialized = false;
   bool _purchasing = false;
   String? _error;
+
+  /// Default: Champion tier (store price is often US \$17.99 for the \$18 tier).
+  SupportTier _selectedTier = SupportTier.tiers[2];
 
   @override
   void initState() {
@@ -98,6 +103,19 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
     }
   }
 
+  Future<void> _openCustomAmountEmail() async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'hello@kolenu.net',
+      queryParameters: <String, String>{
+        'subject': 'Kolenu support — custom amount',
+      },
+    );
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -133,8 +151,8 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Help us keep Hebrew songs and prayers available to everyone. '
-            'Your support allows us to record high-quality audio and improve the app.',
+            'Your support matters. Every amount helps us keep Hebrew prayers and '
+            'songs accessible, record high-quality audio, and improve the app for everyone.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: colorScheme.onSurfaceVariant,
               height: 1.5,
@@ -168,10 +186,23 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          ...SupportTier.tiers.map(
-            (tier) => _buildTierCard(theme, colorScheme, tier),
+          _buildTierSelector(theme, colorScheme),
+          const SizedBox(height: 16),
+          Text(
+            'Support amounts are fixed by the App Store. '
+            'Pick the tier that fits you best.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _openCustomAmountEmail,
+            child: const Text('Discuss another amount by email'),
+          ),
+          const SizedBox(height: 16),
           Text(
             LegalText.supportDisclaimer,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -226,50 +257,86 @@ class _SupportKolenuScreenState extends State<SupportKolenuScreen> {
     );
   }
 
-  Widget _buildTierCard(
-    ThemeData theme,
-    ColorScheme colorScheme,
-    SupportTier tier,
-  ) {
-    final product = _service.productForTier(tier);
-    final price = product?.price ?? '\$${tier.amount}';
-    final canPurchase = _service.isAvailable && product != null && !_purchasing;
+  Widget _buildTierSelector(ThemeData theme, ColorScheme colorScheme) {
+    final product = _service.productForTier(_selectedTier);
+    final price = product?.price ?? '\$${_selectedTier.amount}';
+    final canPurchase = _service.isAvailable && !_purchasing;
+    final canBuySelected = canPurchase && product != null;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                tier.label,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                ),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Choose support amount',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
               ),
-              const SizedBox(height: 6),
-              Text(
-                tier.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.4,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select one tier, then confirm with Apple.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
               ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: canPurchase ? () => _onTierTap(tier) : null,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final SupportTier tier in SupportTier.tiers)
+                  ChoiceChip(
+                    label: Text(_chipLabel(tier)),
+                    selected: tier == _selectedTier,
+                    showCheckmark: false,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(
+                      color: tier == _selectedTier
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.45),
+                      width: tier == _selectedTier ? 2 : 1,
+                    ),
+                    onSelected: _purchasing
+                        ? null
+                        : (bool selected) {
+                            if (selected) {
+                              setState(() => _selectedTier = tier);
+                            }
+                          },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Semantics(
+              label: 'Support Kolenu for $price',
+              button: true,
+              child: FilledButton(
+                onPressed: canBuySelected
+                    ? () => _onTierTap(_selectedTier)
+                    : null,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: Text('${tier.ctaLabel} ($price)'),
+                child: Text('Support Kolenu ($price)'),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  /// Chip label: localized store price when loaded, else fallback `$amount`.
+  String _chipLabel(SupportTier tier) {
+    final product = _service.productForTier(tier);
+    return product?.price ?? '\$${tier.amount}';
   }
 }
