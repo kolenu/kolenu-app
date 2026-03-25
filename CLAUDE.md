@@ -23,7 +23,7 @@ flutter analyze
 # Format code
 dart format .
 
-# Full local CI check (format → analyze → test)
+# Full local CI check (analyze → test);
 ./run_ci.sh
 
 # Regenerate app icons from assets/images/kolenu_lamb_logo.png
@@ -85,7 +85,7 @@ Three theme variants: `KolenuThemeVariant.meadow`, `.sunset`, `.forest`. Each ha
 
 ## Linter Rules
 
-`analysis_options.yaml` treats `unused_local_variable`, `unused_import`, and `dead_code` as **errors**. Key enforced rules: `avoid_print`, `prefer_const_constructors`, `prefer_final_locals`, `always_declare_return_types`, `unawaited_futures`. Run `./run_ci.sh` before pushing to catch all issues.
+`analysis_options.yaml` treats `unused_local_variable`, `unused_import`, and `dead_code` as **errors**. Key enforced rules: `avoid_print`, `prefer_const_constructors`, `prefer_final_locals`, `always_declare_return_types`, `unawaited_futures`. Run `dart format .` and `./run_ci.sh` before pushing.
 
 ## Asset Gotchas
 
