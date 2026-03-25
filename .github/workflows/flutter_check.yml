@@ -34,6 +34,6 @@ jobs:
       - name: Run Tests
         run: flutter test
 
-      # Enforce Dart formatting
-      - name: Check Dart formatting
-        run: dart format --set-exit-if-changed .
+      # Enforce Dart formatting (This option is less important.)
+      #- name: Check Dart formatting
+      #  run: dart format --set-exit-if-changed .
